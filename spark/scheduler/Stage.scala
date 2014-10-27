@@ -25,16 +25,21 @@ import org.apache.spark.storage.BlockManagerId
 import org.apache.spark.util.CallSite
 
 /**
+ * stage是一组独立的tasks，都计算相同的函数，作为一个spark job的一部分，所有的task有相同的shuffle依赖，每个tasks的DAG
+ * 被划分成很多stages，边界就是shuffle发生的时候，然后执行这些stages，以拓扑顺序。
  * A stage is a set of independent tasks all computing the same function that need to run as part
  * of a Spark job, where all the tasks have the same shuffle dependencies. Each DAG of tasks run
  * by the scheduler is split up into stages at the boundaries where shuffle occurs, and then the
  * DAGScheduler runs these stages in topological order.
  *
+ * 每个dag可以是shuffle map dag，所有的task的输入都是另一个stage的输入，也可以是resultstage，task之间计算结果来初始化一个job
+ * 对于shuffle map stages，要跟踪每个输入partition在哪个节点上。
  * Each Stage can either be a shuffle map stage, in which case its tasks' results are input for
  * another stage, or a result stage, in which case its tasks directly compute the action that
  * initiated a job (e.g. count(), save(), etc). For shuffle map stages, we also track the nodes
  * that each output partition is on.
  *
+ * 每个stage都有jobId，就是第一高提交这个stage的job。当使用FIFO调度，jobs越早，stages被计算的越早，恢复越早
  * Each Stage also has a jobId, identifying the job that first submitted the stage.  When FIFO
  * scheduling is used, this allows Stages from earlier jobs to be computed first or recovered
  * faster on failure.
@@ -64,7 +69,7 @@ private[spark] class Stage(
   var numAvailableOutputs = 0
 
   /** Set of jobs that this stage belongs to. */
-  val jobIds = new HashSet[Int]
+  val jobIds = new HashSet[Int]         //这个stage属于哪些jobs
 
   /** For stages that are the final (consists of only ResultTasks), link to the ActiveJob. */
   var resultOfJob: Option[ActiveJob] = None

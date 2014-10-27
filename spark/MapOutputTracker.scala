@@ -217,6 +217,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
 /**
  * MapOutputTracker for the driver. This uses TimeStampedHashMap to keep track of map
  * output information, which allows old output information based on a TTL.
+ * 时间戳哈希，记录map output信息
  */
 private[spark] class MapOutputTrackerMaster(conf: SparkConf)
   extends MapOutputTracker(conf) {
