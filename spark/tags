@@ -1,0 +1,22 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+AlphaComponent	annotation/AlphaComponent.java	/^public @interface AlphaComponent {}$/;"	i
+DeveloperApi	annotation/DeveloperApi.java	/^public @interface DeveloperApi {}$/;"	i
+Experimental	annotation/Experimental.java	/^public @interface Experimental {}$/;"	i
+org.apache.spark.annotation	annotation/AlphaComponent.java	/^package org.apache.spark.annotation;$/;"	p
+org.apache.spark.annotation	annotation/DeveloperApi.java	/^package org.apache.spark.annotation;$/;"	p
+org.apache.spark.annotation	annotation/Experimental.java	/^package org.apache.spark.annotation;$/;"	p
+org.apache.spark.annotation	annotation/package-info.java	/^package org.apache.spark.annotation;/;"	p
+org.apache.spark.api.java	api/java/package-info.java	/^package org.apache.spark.api.java;/;"	p
+org.apache.spark.broadcast	broadcast/package-info.java	/^package org.apache.spark.broadcast;/;"	p
+org.apache.spark.executor	executor/package-info.java	/^package org.apache.spark.executor;/;"	p
+org.apache.spark.io	io/package-info.java	/^package org.apache.spark.io;/;"	p
+org.apache.spark.rdd	rdd/package-info.java	/^package org.apache.spark.rdd;/;"	p
+org.apache.spark.scheduler	scheduler/package-info.java	/^package org.apache.spark.scheduler;/;"	p
+org.apache.spark.serializer	serializer/package-info.java	/^package org.apache.spark.serializer;$/;"	p
+org.apache.spark.util	util/package-info.java	/^package org.apache.spark.util;/;"	p
+org.apache.spark.util.random	util/random/package-info.java	/^package org.apache.spark.util.random;/;"	p
