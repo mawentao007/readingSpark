@@ -20,6 +20,7 @@ package org.apache.spark.shuffle
 import org.apache.spark.{TaskContext, ShuffleDependency}
 
 /**
+ * 在driver和executors两端都要被创建
  * Pluggable interface for shuffle systems. A ShuffleManager is created in SparkEnv on both the
  * driver and executors, based on the spark.shuffle.manager setting. The driver registers shuffles
  * with it, and executors (or tasks running locally in the driver) can ask to read and write data.
@@ -30,18 +31,22 @@ import org.apache.spark.{TaskContext, ShuffleDependency}
 private[spark] trait ShuffleManager {
   /**
    * Register a shuffle with the manager and obtain a handle for it to pass to tasks.
+   * 注册一个shuffle，获得句柄用来传递task
    */
   def registerShuffle[K, V, C](
       shuffleId: Int,
       numMaps: Int,
       dependency: ShuffleDependency[K, V, C]): ShuffleHandle
 
-  /** Get a writer for a given partition. Called on executors by map tasks. */
+  /** Get a writer for a given partition. Called on executors by map tasks.
+    * 为给定partition获得一个writer，在executor上的map任务时调用
+    * */
   def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext): ShuffleWriter[K, V]
 
   /**
    * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
    * Called on executors by reduce tasks.
+   * 为一组partitions获得一个读器，执行器执行reduce task时调用
    */
   def getReader[K, C](
       handle: ShuffleHandle,

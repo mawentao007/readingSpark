@@ -49,7 +49,7 @@ private[spark] class CoarseGrainedExecutorBackend(
   override def preStart() {
     logInfo("Connecting to driver: " + driverUrl)
     driver = context.actorSelection(driverUrl)
-    driver ! RegisterExecutor(executorId, hostPort, cores)
+    driver ! RegisterExecutor(executorId, hostPort, cores)        //注册executor
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
   }
 

@@ -69,7 +69,7 @@ private[spark] class Executor(
     Thread.setDefaultUncaughtExceptionHandler(ExecutorUncaughtExceptionHandler)
   }
 
-  val executorSource = new ExecutorSource(this, executorId)
+  val executorSource = new ExecutorSource(this, executorId)    //资源计量器
 
   // Initialize Spark environment (using system properties read above)
   private val env = {
@@ -86,7 +86,7 @@ private[spark] class Executor(
 
   // Create our ClassLoader
   // do this after SparkEnv creation so can access the SecurityManager
-  private val urlClassLoader = createClassLoader()
+  private val urlClassLoader = createClassLoader()    //创建类加载器
   private val replClassLoader = addReplClassLoaderIfNeeded(urlClassLoader)
 
   // Set the classloader for serializer
@@ -94,13 +94,14 @@ private[spark] class Executor(
 
   // Akka's message frame size. If task result is bigger than this, we use the block manager
   // to send the result back.
+  //Akka的消息框大小，如该任务结果比这个大，那么我们使用块管理器发送结果。
   private val akkaFrameSize = AkkaUtils.maxFrameSizeBytes(conf)
 
   // Start worker thread pool
   val threadPool = Utils.newDaemonCachedThreadPool("Executor task launch worker")
 
   // Maintains the list of running tasks.
-  private val runningTasks = new ConcurrentHashMap[Long, TaskRunner]
+  private val runningTasks = new ConcurrentHashMap[Long, TaskRunner]    //维护正在执行的tasks的列表
 
   startDriverHeartbeater()
 
@@ -143,20 +144,20 @@ private[spark] class Executor(
     override def run() {
       val startTime = System.currentTimeMillis()
       SparkEnv.set(env)
-      Thread.currentThread.setContextClassLoader(replClassLoader)
-      val ser = SparkEnv.get.closureSerializer.newInstance()
+      Thread.currentThread.setContextClassLoader(replClassLoader)      //设置类加载器
+      val ser = SparkEnv.get.closureSerializer.newInstance()              //序列化工具
       logInfo(s"Running $taskName (TID $taskId)")
-      execBackend.statusUpdate(taskId, TaskState.RUNNING, EMPTY_BYTE_BUFFER)
+      execBackend.statusUpdate(taskId, TaskState.RUNNING, EMPTY_BYTE_BUFFER)      //更新状态
       var taskStart: Long = 0
-      def gcTime = ManagementFactory.getGarbageCollectorMXBeans.map(_.getCollectionTime).sum
+      def gcTime = ManagementFactory.getGarbageCollectorMXBeans.map(_.getCollectionTime).sum  //GC
       val startGCTime = gcTime
 
       try {
         SparkEnv.set(env)
-        Accumulators.clear()
-        val (taskFiles, taskJars, taskBytes) = Task.deserializeWithDependencies(serializedTask)
-        updateDependencies(taskFiles, taskJars)
-        task = ser.deserialize[Task[Any]](taskBytes, Thread.currentThread.getContextClassLoader)
+        Accumulators.clear()      //计数器清零
+        val (taskFiles, taskJars, taskBytes) = Task.deserializeWithDependencies(serializedTask)  //反序列化
+        updateDependencies(taskFiles, taskJars)           //更新依赖，文件依赖和jar依赖 ，更新executor类实例的一个全局映射表
+        task = ser.deserialize[Task[Any]](taskBytes, Thread.currentThread.getContextClassLoader)  //反序列化得到task
 
         // If this task has been killed before we deserialized it, let's quit now. Otherwise,
         // continue executing the task.
@@ -170,21 +171,21 @@ private[spark] class Executor(
 
         attemptedTask = Some(task)
         logDebug("Task " + taskId + "'s epoch is " + task.epoch)
-        env.mapOutputTracker.updateEpoch(task.epoch)
+        env.mapOutputTracker.updateEpoch(task.epoch)    //更新epoch号，用来标志最新的task？
 
         // Run the actual task and measure its runtime.
-        taskStart = System.currentTimeMillis()
-        val value = task.run(taskId.toInt)
-        val taskFinish = System.currentTimeMillis()
+        taskStart = System.currentTimeMillis()          //开始时间
+        val value = task.run(taskId.toInt)        //虚类方法，执行相应的task
+        val taskFinish = System.currentTimeMillis()   //结束时间
 
         // If the task has been killed, let's fail it.
         if (task.killed) {
           throw new TaskKilledException
         }
 
-        val resultSer = SparkEnv.get.serializer.newInstance()
+        val resultSer = SparkEnv.get.serializer.newInstance()  //创建序列化实例
         val beforeSerialization = System.currentTimeMillis()
-        val valueBytes = resultSer.serialize(value)
+        val valueBytes = resultSer.serialize(value)         //序列化结果
         val afterSerialization = System.currentTimeMillis()
 
         for (m <- task.metrics) {
@@ -197,15 +198,15 @@ private[spark] class Executor(
         val accumUpdates = Accumulators.values
 
         val directResult = new DirectTaskResult(valueBytes, accumUpdates, task.metrics.orNull)
-        val serializedDirectResult = ser.serialize(directResult)
-        val resultSize = serializedDirectResult.limit
+        val serializedDirectResult = ser.serialize(directResult)          //序列化结果
+        val resultSize = serializedDirectResult.limit               //序列化之后的结果的大小
 
         // directSend = sending directly back to the driver
         val (serializedResult, directSend) = {
           if (resultSize >= akkaFrameSize - AkkaUtils.reservedSizeBytes) {
             val blockId = TaskResultBlockId(taskId)
             env.blockManager.putBytes(
-              blockId, serializedDirectResult, StorageLevel.MEMORY_AND_DISK_SER)
+              blockId, serializedDirectResult, StorageLevel.MEMORY_AND_DISK_SER)       //将序列化结果存储到block块中
             (ser.serialize(new IndirectTaskResult[Any](blockId)), false)
           } else {
             (serializedDirectResult, true)
@@ -265,6 +266,7 @@ private[spark] class Executor(
   /**
    * Create a ClassLoader for use in tasks, adding any JARs specified by the user or any classes
    * created by the interpreter to the search path
+   * 创建一个类加载器给task用
    */
   private def createClassLoader(): MutableURLClassLoader = {
     val currentLoader = Utils.getContextOrSparkClassLoader
@@ -311,21 +313,22 @@ private[spark] class Executor(
   /**
    * Download any missing dependencies if we receive a new set of files and JARs from the
    * SparkContext. Also adds any new JARs we fetched to the class loader.
+   * 从上下文收到一组文件和JARs后，下载丢失的依赖，并且将新的JAR添加到class loader
    */
   private def updateDependencies(newFiles: HashMap[String, Long], newJars: HashMap[String, Long]) {
     synchronized {
-      // Fetch missing dependencies
+      // Fetch missing dependencies  返回-1表示文件不存在，时间戳小表示文件较早
       for ((name, timestamp) <- newFiles if currentFiles.getOrElse(name, -1L) < timestamp) {
         logInfo("Fetching " + name + " with timestamp " + timestamp)
         Utils.fetchFile(name, new File(SparkFiles.getRootDirectory), conf, env.securityManager)
-        currentFiles(name) = timestamp
+        currentFiles(name) = timestamp          //将相应文件添加;或者仅仅更新时间戳
       }
       for ((name, timestamp) <- newJars if currentJars.getOrElse(name, -1L) < timestamp) {
         logInfo("Fetching " + name + " with timestamp " + timestamp)
         Utils.fetchFile(name, new File(SparkFiles.getRootDirectory), conf, env.securityManager)
         currentJars(name) = timestamp
         // Add it to our class loader
-        val localName = name.split("/").last
+        val localName = name.split("/").last           //将jar添加到class loader
         val url = new File(SparkFiles.getRootDirectory, localName).toURI.toURL
         if (!urlClassLoader.getURLs.contains(url)) {
           logInfo("Adding " + url + " to class loader")

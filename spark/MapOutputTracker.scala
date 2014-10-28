@@ -194,6 +194,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
    * Called from executors to update the epoch number, potentially clearing old outputs
    * because of a fetch failure. Each worker task calls this with the latest epoch
    * number on the master at the time it was created.
+   * 更新epoch号，每个task在创建的时候调用这个方法并传递一个master上最新的epoch号。
    */
   def updateEpoch(newEpoch: Long) {
     epochLock.synchronized {

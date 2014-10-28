@@ -24,6 +24,8 @@ import org.apache.hadoop.fs.FileSystem
 
 import org.apache.spark.metrics.source.Source
 
+
+//执行器的资源
 private[spark] class ExecutorSource(val executor: Executor, executorId: String) extends Source {
   private def fileStats(scheme: String) : Option[FileSystem.Statistics] =
     FileSystem.getAllStatistics().filter(s => s.getScheme.equals(scheme)).headOption
@@ -38,6 +40,7 @@ private[spark] class ExecutorSource(val executor: Executor, executorId: String) 
   override val metricRegistry = new MetricRegistry()
 
   // TODO: It would be nice to pass the application name here
+  //gauge  计量
   override val sourceName = "executor.%s".format(executorId)
 
   // Gauge for executor thread pool's actively executing task counts

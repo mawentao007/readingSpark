@@ -68,6 +68,7 @@ private[spark] class TaskSchedulerImpl(
   val STARVATION_TIMEOUT = conf.getLong("spark.starvation.timeout", 15000)
 
   // CPUs to request per task
+  //每个task可以请求的cpu的个数
   val CPUS_PER_TASK = conf.getInt("spark.task.cpus", 1)
 
   // TaskSetManagers are not thread safe, so any access to one should be synchronized
@@ -120,7 +121,7 @@ private[spark] class TaskSchedulerImpl(
     this.dagScheduler = dagScheduler
   }
 
-  def initialize(backend: SchedulerBackend) {
+  def initialize(backend: SchedulerBackend) {                  //在sparkContext中初始化backend
     this.backend = backend
     // temporarily set rootPool name to empty
     rootPool = new Pool("", schedulingMode, 0, 0)
@@ -156,7 +157,7 @@ private[spark] class TaskSchedulerImpl(
 
   override def submitTasks(taskSet: TaskSet) {
     logInfo("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Marvin!!!!!!!!!!!!!!!!!!!!!   submitTasks")
-    val tasks = taskSet.tasks
+    val tasks = taskSet.tasks                   //待完成的task
     logInfo("Adding task set " + taskSet.id + " with " + tasks.length + " tasks")
     this.synchronized {
       val manager = new TaskSetManager(this, taskSet, maxTaskFailures)
@@ -285,7 +286,7 @@ private[spark] class TaskSchedulerImpl(
     var failedExecutor: Option[String] = None
     synchronized {
       try {
-        if (state == TaskState.LOST && taskIdToExecutorId.contains(tid)) {
+        if (state == TaskState.LOST && taskIdToExecutorId.contains(tid)) {           //task丢失，移除executor
           // We lost this entire executor, so remember that it's gone
           val execId = taskIdToExecutorId(tid)
           if (activeExecutorIds.contains(execId)) {

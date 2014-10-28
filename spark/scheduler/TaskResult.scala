@@ -34,7 +34,9 @@ private[spark] sealed trait TaskResult[T]
 private[spark]
 case class IndirectTaskResult[T](blockId: BlockId) extends TaskResult[T] with Serializable
 
-/** A TaskResult that contains the task's return value and accumulator updates. */
+/** A TaskResult that contains the task's return value and accumulator updates.
+  * 包含task返回值和accumulator更新的结果
+  * */
 private[spark]
 class DirectTaskResult[T](var valueBytes: ByteBuffer, var accumUpdates: Map[Long, Any],
     var metrics: TaskMetrics)

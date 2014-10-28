@@ -24,8 +24,11 @@ import org.apache.spark.storage.{BlockId, BlockStatus}
 
 /**
  * :: DeveloperApi ::
+ * 监测器在task执行期间跟踪task
  * Metrics tracked during the execution of a task.
  *
+ * 这个类用来保存metrics给正在执行和完成的tasks。在executors，task线程和心跳线程写入TM。心跳线程读取它并发送给正在执行的metrics，task线程
+ * 读取它并和完成的task一同发送
  * This class is used to house metrics both for in-progress and completed tasks. In executors,
  * both the task thread and the heartbeat thread write to the TaskMetrics. The heartbeat thread
  * reads it to send in-progress metrics, and the task thread reads it to send metrics along with

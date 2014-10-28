@@ -34,6 +34,8 @@ import org.apache.spark.util.{ActorLogReceive, SerializableBuffer, AkkaUtils, Ut
 import org.apache.spark.ui.JettyUtils
 
 /**
+ * 等待粗粒度执行器通过akka连接，这个后端在job期间控制每个执行器，而不是等task执行完成之后就放弃执行器，在新任务到达的时候
+ * 启动一个新的执行器。
  * A scheduler backend that waits for coarse grained executors to connect to it through Akka.
  * This backend holds onto each executor for the duration of the Spark job rather than relinquishing
  * executors whenever a task is done and asking the scheduler to launch a new executor for
@@ -53,10 +55,12 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
   private val akkaFrameSize = AkkaUtils.maxFrameSizeBytes(conf)
   // Submit tasks only after (registered resources / total expected resources) 
   // is equal to at least this value, that is double between 0 and 1.
+  //当需求的资源达到一定比例的时候开始任务
   var minRegisteredRatio =
     math.min(1, conf.getDouble("spark.scheduler.minRegisteredResourcesRatio", 0))
   // Submit tasks after maxRegisteredWaitingTime milliseconds
-  // if minRegisteredRatio has not yet been reached  
+  // if minRegisteredRatio has not yet been reached
+  //在最大时间之后提交任务，如该比率还未达到
   val maxRegisteredWaitingTime =
     conf.getInt("spark.scheduler.maxRegisteredResourcesWaitingTime", 30000)
   val createTime = System.currentTimeMillis()
@@ -65,7 +69,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
 
     override protected def log = CoarseGrainedSchedulerBackend.this.log
 
-    private val executorActor = new HashMap[String, ActorRef]
+    private val executorActor = new HashMap[String, ActorRef]     //executor到actor的映射
     private val executorAddress = new HashMap[String, Address]
     private val executorHost = new HashMap[String, String]
     private val freeCores = new HashMap[String, Int]
@@ -77,20 +81,21 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
       context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
 
       // Periodically revive offers to allow delay scheduling to work
+      //定期获取资源进行调度
       val reviveInterval = conf.getLong("spark.scheduler.revive.interval", 1000)
       import context.dispatcher
       context.system.scheduler.schedule(0.millis, reviveInterval.millis, self, ReviveOffers)
     }
 
-    def receiveWithLogging = {
+    def receiveWithLogging = {      //注册执行器
       case RegisterExecutor(executorId, hostPort, cores) =>
         Utils.checkHostPort(hostPort, "Host port expected " + hostPort)
-        if (executorActor.contains(executorId)) {
-          sender ! RegisterExecutorFailed("Duplicate executor ID: " + executorId)
+        if (executorActor.contains(executorId)) {   //如果执行器映射表包含当前的执行器
+          sender ! RegisterExecutorFailed("Duplicate executor ID: " + executorId)   //返回注册失败消息
         } else {
           logInfo("Registered executor: " + sender + " with ID " + executorId)
           sender ! RegisteredExecutor
-          executorActor(executorId) = sender
+          executorActor(executorId) = sender       //相应的executorId映射到sender
           executorHost(executorId) = Utils.parseHostPort(hostPort)._1
           totalCores(executorId) = cores
           freeCores(executorId) = cores
@@ -98,7 +103,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
           addressToExecutorId(sender.path.address) = executorId
           totalCoreCount.addAndGet(cores)
           totalRegisteredExecutors.addAndGet(1)
-          makeOffers()
+          makeOffers()        //提供资源，开始task
         }
 
       case StatusUpdate(executorId, taskId, state, data) =>
@@ -147,6 +152,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
     }
 
     // Make fake resource offers on all executors
+    //创建资源
     def makeOffers() {
       launchTasks(scheduler.resourceOffers(
         executorHost.toArray.map {case (id, host) => new WorkerOffer(id, host, freeCores(id))}))
@@ -179,7 +185,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
           }
         }
         else {
-          freeCores(task.executorId) -= scheduler.CPUS_PER_TASK
+          freeCores(task.executorId) -= scheduler.CPUS_PER_TASK      //减少空余core的个数
           executorActor(task.executorId) ! LaunchTask(new SerializableBuffer(serializedTask))
         }
       }

@@ -21,6 +21,7 @@ package org.apache.spark.scheduler
  * A location where a task should run. This can either be a host or a (host, executorID) pair.
  * In the latter case, we will prefer to launch the task on that executorID, but our next level
  * of preference will be executors on the same host if this is not possible.
+ * task应该执行的位置，一个host或者是（host，executorID）对，后一种情况，task将被优先放到相应执行器上，如果执行器不能满足，那就放到host上。
  */
 private[spark]
 class TaskLocation private (val host: String, val executorId: Option[String]) extends Serializable {

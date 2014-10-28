@@ -195,9 +195,8 @@ class DAGScheduler(
   def taskSetFailed(taskSet: TaskSet, reason: String) {
     eventProcessActor ! TaskSetFailed(taskSet, reason)
   }
-
+//返回rdd的缓存位置
   private def getCacheLocs(rdd: RDD[_]): Array[Seq[TaskLocation]] = {
-    logInfo("*********************Marvin***************** getCacheLocs")
     if (!cacheLocs.contains(rdd.id)) {
       val blockIds = rdd.partitions.indices.map(index => RDDBlockId(rdd.id, index)).toArray[BlockId]
       val locs = BlockManager.blockIdsToBlockManagers(blockIds, env, blockManagerMaster)
@@ -876,9 +875,9 @@ class DAGScheduler(
         return
     }
 
-    val tasks: Seq[Task[_]] = if (stage.isShuffleMap) {      //计算tasks队列
+    val tasks: Seq[Task[_]] = if (stage.isShuffleMap) {      //计算tasks队列，一个partition对应一个task
       partitionsToCompute.map { id =>
-        val locs = getPreferredLocs(stage.rdd, id)
+        val locs = getPreferredLocs(stage.rdd, id)    //比较倾向的输出位置
         val part = stage.rdd.partitions(id)
         new ShuffleMapTask(stage.id, taskBinary, part, locs)
       }
@@ -1315,7 +1314,9 @@ class DAGScheduler(
     getPreferredLocsInternal(rdd, partition, new HashSet)
   }
 
-  /** Recursive implementation for getPreferredLocs. */
+  /** Recursive implementation for getPreferredLocs.
+    * 递归实现，查找比较合适的位置
+    * */
   private def getPreferredLocsInternal(
       rdd: RDD[_],
       partition: Int,
@@ -1324,23 +1325,28 @@ class DAGScheduler(
   {
     // If the partition has already been visited, no need to re-visit.
     // This avoids exponential path exploration.  SPARK-695
+    //如果已经访问过了，就不要再重新访问
     if (!visited.add((rdd,partition))) {
       // Nil has already been returned for previously visited partitions.
       return Nil
     }
     // If the partition is cached, return the cache locations
+    //如果已经缓存了，就返回缓存地址。
     val cached = getCacheLocs(rdd)(partition)
     if (!cached.isEmpty) {
       return cached
     }
     // If the RDD has some placement preferences (as is the case for input RDDs), get those
+    //如该rdd有想要存放的地方，返回这些位置
     val rddPrefs = rdd.preferredLocations(rdd.partitions(partition)).toList
     if (!rddPrefs.isEmpty) {
+ //     logInfo("*******************Marvin**********&&&&&" + rddPrefs.map(host => TaskLocation(host)))
       return rddPrefs.map(host => TaskLocation(host))
     }
     // If the RDD has narrow dependencies, pick the first partition of the first narrow dep
     // that has any placement preferences. Ideally we would choose based on transfer sizes,
     // but this will do for now.
+    //如果rdd有窄依赖，找到第一个partition的位置喜好，理论上讲应该依据传输数据大小。
     rdd.dependencies.foreach {
       case n: NarrowDependency[_] =>
         for (inPart <- n.getParents(partition)) {

@@ -34,6 +34,8 @@ import org.apache.spark.util.Utils
  * - [[org.apache.spark.scheduler.ShuffleMapTask]]
  * - [[org.apache.spark.scheduler.ResultTask]]
  *
+ *一个spark job包含很多stages，最后的stage包含多个ResultTasks，之前的包含很多ShuffleMapTasks。一个RT执行并且将结果发送给driver。ST执行task
+ * 并将结果放入多个bucket，依据的是tasks的partitioner。
  * A Spark job consists of one or more stages. The very last stage in a job consists of multiple
  * ResultTasks, while earlier stages consist of ShuffleMapTasks. A ResultTask executes the task
  * and sends the task output back to the driver application. A ShuffleMapTask executes the task
@@ -101,6 +103,8 @@ private[spark] abstract class Task[T](val stageId: Int, var partitionId: Int) ex
  * worker nodes find out about it, but we can't make it part of the Task because the user's code in
  * the task might depend on one of the JARs. Thus we serialize each task as multiple objects, by
  * first writing out its dependencies.
+ * 处理task的传输和他们的依赖。我们需要和task一起发送被添加到上下文的JARS和files，来保证工作节点找得到，但是不能把他们作为task的一部分因为用户代码可能依赖
+ * 其中的JARs。我们将每个task序列化为很多对象，首先写他们的依赖
  */
 private[spark] object Task {
   /**
