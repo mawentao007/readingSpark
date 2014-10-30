@@ -114,7 +114,7 @@ class DAGScheduler(
   private val failedEpoch = new HashMap[String, Long]
 
   private val dagSchedulerActorSupervisor =
-    env.actorSystem.actorOf(Props(new DAGSchedulerActorSupervisor(this)))
+    env.actorSystem.actorOf(Props(new DAGSchedulerActorSupervisor(this)))    //创建DAG调度器监控器
 
   // A closure serializer that we reuse.
   // This is only safe because DAGScheduler runs in a single thread.
@@ -132,7 +132,7 @@ class DAGScheduler(
     // 确保eventProcessActor已经启动
     implicit val timeout = Timeout(30 seconds)
     val initEventActorReply =
-      dagSchedulerActorSupervisor ? Props(new DAGSchedulerEventProcessActor(this))
+      dagSchedulerActorSupervisor ? Props(new DAGSchedulerEventProcessActor(this))    //给监控器发送消息，要求创建新的DAG调度器actor
     eventProcessActor = Await.result(initEventActorReply, timeout.duration).
       asInstanceOf[ActorRef]
   }
@@ -501,14 +501,14 @@ class DAGScheduler(
   {
     logInfo("***********************Marvin****************************  submitJob")
     // Check to make sure we are not launching a task on a partition that does not exist.
-    val maxPartitions = rdd.partitions.length
-    partitions.find(p => p >= maxPartitions || p < 0).foreach { p =>
+    val maxPartitions = rdd.partitions.length    //任务最大的partitions数量，防止在不存在的partition上开始任务
+    partitions.find(p => p >= maxPartitions || p < 0).foreach { p =>  //超出范围的partition，报错
       throw new IllegalArgumentException(
         "Attempting to access a non-existent partition: " + p + ". " +
           "Total number of partitions: " + maxPartitions)
     }
 
-    val jobId = nextJobId.getAndIncrement()
+    val jobId = nextJobId.getAndIncrement()             //增加jobId
     if (partitions.size == 0) {
       return new JobWaiter[U](this, jobId, 0, resultHandler)
     }
@@ -617,6 +617,7 @@ class DAGScheduler(
   /**
    * Check for waiting or failed stages which are now eligible for resubmission.
    * Ordinarily run on every iteration of the event loop.
+   *
    */
   private def submitWaitingStages() {
     logInfo("****************Marvin******************* submitWaitingStages")
@@ -813,7 +814,9 @@ class DAGScheduler(
     }
   }
 
-  /** Called when stage's parents are available and we can now do its task. */
+  /** Called when stage's parents are available and we can now do its task. \
+    * 父stages都完成，可以执行当前任务
+    * */
   private def submitMissingTasks(stage: Stage, jobId: Int) {
     logDebug("submitMissingTasks(" + stage + ")")
     logInfo("######################Marvin############################"+ "submitMissingTasks(" + stage + ")")
@@ -855,7 +858,7 @@ class DAGScheduler(
     var taskBinary: Broadcast[Array[Byte]] = null       //广播task的二进制，分发task的rdd到executors，rdd也要被序列化，每个task有rdd的不同拷贝
     try {
       // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep).
-      // For ResultTask, serialize and broadcast (rdd, func).
+      // For ResultTask, serialize and broadcast (rdd, func).  result依赖整个RDD，shuffle需要依赖部分或者整体，所以序列化shuffle
       val taskBinaryBytes: Array[Byte] =                        //序列化
         if (stage.isShuffleMap) {
           closureSerializer.serialize((stage.rdd, stage.shuffleDep.get) : AnyRef).array()

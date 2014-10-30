@@ -97,21 +97,26 @@ abstract class RDD[T: ClassTag](
   /**
    * Implemented by subclasses to return the set of partitions in this RDD. This method will only
    * be called once, so it is safe to implement a time-consuming computation in it.
+   * 返回当前rdd的partitions
    */
   protected def getPartitions: Array[Partition]
 
   /**
    * Implemented by subclasses to return how this RDD depends on parent RDDs. This method will only
    * be called once, so it is safe to implement a time-consuming computation in it.
+   * 返回当前RDD对父rdd的依赖
    */
   protected def getDependencies: Seq[Dependency[_]] = deps
 
   /**
    * Optionally overridden by subclasses to specify placement preferences.
+   * 放置位置偏好
    */
   protected def getPreferredLocations(split: Partition): Seq[String] = Nil
 
-  /** Optionally overridden by subclasses to specify how they are partitioned. */
+  /** Optionally overridden by subclasses to specify how they are partitioned.
+    * 分块规则
+    * */
   @transient val partitioner: Option[Partitioner] = None
 
   // =======================================================================
@@ -137,6 +142,7 @@ abstract class RDD[T: ClassTag](
    * Set this RDD's storage level to persist its values across operations after the first time
    * it is computed. This can only be used to assign a new storage level if the RDD does not
    * have a storage level set yet..
+   * 根据存储基本来保存操作值
    */
   def persist(newLevel: StorageLevel): this.type = {
     // TODO: Handle changes of StorageLevel
@@ -235,6 +241,7 @@ abstract class RDD[T: ClassTag](
    * Return the ancestors of the given RDD that are related to it only through a sequence of
    * narrow dependencies. This traverses the given RDD's dependency tree using DFS, but maintains
    * no ordering on the RDDs returned.
+   * 返回当前rdd的祖先，通过窄依赖队列
    */
   private[spark] def getNarrowAncestors: Seq[RDD[_]] = {
     val ancestors = new mutable.HashSet[RDD[_]]
@@ -301,6 +308,7 @@ abstract class RDD[T: ClassTag](
    *
    * If you are decreasing the number of partitions in this RDD, consider using `coalesce`,
    * which can avoid performing a shuffle.
+   * 返回一个新的rdd，有指定的partitions个数。可以降低或者增加RDD的并行度，通过shuffle来重新分配数据。如果降低RDD的partitions的数量，可以用coalesce避免shuffle
    */
   def repartition(numPartitions: Int)(implicit ord: Ordering[T] = null): RDD[T] = {
     coalesce(numPartitions, shuffle = true)
@@ -312,6 +320,7 @@ abstract class RDD[T: ClassTag](
    * This results in a narrow dependency, e.g. if you go from 1000 partitions
    * to 100 partitions, there will not be a shuffle, instead each of the 100
    * new partitions will claim 10 of the current partitions.
+   * 导致窄依赖
    *
    * However, if you're doing a drastic coalesce, e.g. to numPartitions = 1,
    * this may result in your computation taking place on fewer nodes than
@@ -366,6 +375,7 @@ abstract class RDD[T: ClassTag](
 
   /**
    * Randomly splits this RDD with the provided weights.
+   * 根据权重分裂rdd
    *
    * @param weights weights for splits, will be normalized if they don't sum to 1
    * @param seed random seed
@@ -435,12 +445,14 @@ abstract class RDD[T: ClassTag](
   /**
    * Return the union of this RDD and another one. Any identical elements will appear multiple
    * times (use `.distinct()` to eliminate them).
+   * 联合两个RDD，相同的元素会重复出现，用distinct清除冗余。
    */
   def union(other: RDD[T]): RDD[T] = new UnionRDD(sc, Array(this, other))
 
   /**
    * Return the union of this RDD and another one. Any identical elements will appear multiple
    * times (use `.distinct()` to eliminate them).
+   * 同union
    */
   def ++(other: RDD[T]): RDD[T] = this.union(other)
 

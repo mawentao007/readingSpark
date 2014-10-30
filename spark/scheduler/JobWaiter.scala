@@ -20,6 +20,7 @@ package org.apache.spark.scheduler
 /**
  * An object that waits for a DAGScheduler job to complete. As tasks finish, it passes their
  * results to the given handler function.
+ * 等待DAGSchedulerjob完成，如该完成，将结果发送给指定句柄
  */
 private[spark] class JobWaiter[T](
     dagScheduler: DAGScheduler,

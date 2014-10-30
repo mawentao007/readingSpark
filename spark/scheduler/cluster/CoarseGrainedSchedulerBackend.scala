@@ -165,11 +165,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
     }
 
     // Launch tasks returned by a set of resource offers
-    def launchTasks(tasks: Seq[Seq[TaskDescription]]) {
+    def  launchTasks(tasks: Seq[Seq[TaskDescription]]) {
       for (task <- tasks.flatten) {
         val ser = SparkEnv.get.closureSerializer.newInstance()
         val serializedTask = ser.serialize(task)
-        if (serializedTask.limit >= akkaFrameSize - AkkaUtils.reservedSizeBytes) {
+        if (serializedTask.limit >= akkaFrameSize - AkkaUtils.reservedSizeBytes) {   //如果序列化的大小大于akka大小，abort
           val taskSetId = scheduler.taskIdToTaskSetId(task.taskId)
           scheduler.activeTaskSets.get(taskSetId).foreach { taskSet =>
             try {
@@ -186,7 +186,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
         }
         else {
           freeCores(task.executorId) -= scheduler.CPUS_PER_TASK      //减少空余core的个数
-          executorActor(task.executorId) ! LaunchTask(new SerializableBuffer(serializedTask))
+          executorActor(task.executorId) ! LaunchTask(new SerializableBuffer(serializedTask))    //给executorActor发送请求，开始task
         }
       }
     }

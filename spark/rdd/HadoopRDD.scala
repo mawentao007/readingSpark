@@ -168,6 +168,8 @@ class HadoopRDD[K, V](
     newInputFormat
   }
 
+
+  //生成rdd的partition
   override def getPartitions: Array[Partition] = {
     val jobConf = getJobConf()
     // add the credentials here as this can be called before SparkContext initialized
@@ -177,9 +179,9 @@ class HadoopRDD[K, V](
       inputFormat.asInstanceOf[Configurable].setConf(jobConf)
     }
     val inputSplits = inputFormat.getSplits(jobConf, minPartitions)
-    val array = new Array[Partition](inputSplits.size)
+    val array = new Array[Partition](inputSplits.size)            //创建Partition array
     for (i <- 0 until inputSplits.size) {
-      array(i) = new HadoopPartition(id, i, inputSplits(i))
+      array(i) = new HadoopPartition(id, i, inputSplits(i))           //生成HadoopPartition放入array
     }
     array
   }

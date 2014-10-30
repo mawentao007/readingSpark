@@ -83,7 +83,7 @@ class ShuffledRDD[K, V, C](
   override val partitioner = Some(part)
 
   override def getPartitions: Array[Partition] = {
-    Array.tabulate[Partition](part.numPartitions)(i => new ShuffledRDDPartition(i))
+    Array.tabulate[Partition](part.numPartitions)(i => new ShuffledRDDPartition(i))  //tabulate，生成array
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[(K, C)] = {

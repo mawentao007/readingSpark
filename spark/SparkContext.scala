@@ -307,12 +307,12 @@ class SparkContext(config: SparkConf) extends Logging {
   executorEnvs("SPARK_USER") = sparkUser
 
   // Create and start the scheduler
-  private[spark] var taskScheduler = SparkContext.createTaskScheduler(this, master)
+  private[spark] var taskScheduler = SparkContext.createTaskScheduler(this, master)  //创建taskScheduler
   private val heartbeatReceiver = env.actorSystem.actorOf(
     Props(new HeartbeatReceiver(taskScheduler)), "HeartbeatReceiver")
   @volatile private[spark] var dagScheduler: DAGScheduler = _
   try {
-    dagScheduler = new DAGScheduler(this)
+    dagScheduler = new DAGScheduler(this)       //将taskScheduler的句柄传入DAGScheduler
   } catch {
     case e: Exception => throw
       new SparkException("DAGScheduler cannot be initialized due to %s".format(e.getMessage))
@@ -1071,6 +1071,7 @@ class SparkContext(config: SparkConf) extends Logging {
    * handler function. This is the main entry point for all actions in Spark. The allowLocal
    * flag specifies whether the scheduler can run the computation on the driver rather than
    * shipping it out to the cluster, for short actions like first().
+   * 在一个rdd的partitions集合上运行某个函数，将结果传给句柄函数。spark所有动作的主要入口。
    */
   def runJob[T, U: ClassTag](
       rdd: RDD[T],
@@ -1228,6 +1229,7 @@ class SparkContext(config: SparkConf) extends Logging {
   }
 
   /**
+   * 清理一个闭包，保证它可以序列化并发送给task。（移除无引用变量）
    * Clean a closure to make it ready to serialized and send to tasks
    * (removes unreferenced variables in $outer's, updates REPL variables)
    * If <tt>checkSerializable</tt> is set, <tt>clean</tt> will also proactively
