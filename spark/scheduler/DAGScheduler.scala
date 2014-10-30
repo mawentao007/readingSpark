@@ -713,7 +713,7 @@ class DAGScheduler(
     submitWaitingStages()
   }
 
-  private[scheduler] def handleTaskSetFailed(taskSet: TaskSet, reason: String) {
+  private[scheduler] def handleTaskSetFailed(taskSet: TaskSet, reason: String) {           //任务失败，找到相应的stage，abort
     stageIdToStage.get(taskSet.stageId).foreach {abortStage(_, reason) }
     submitWaitingStages()
   }
@@ -1093,6 +1093,8 @@ class DAGScheduler(
         // It is likely that we receive multiple FetchFailed for a single stage (because we have
         // multiple tasks running concurrently on different executors). In that case, it is possible
         // the fetch failure has already been handled by the scheduler.
+        //我们可能接收到同一个stage发送的多次失败消息，因为多个tasks同时运行在不同executors上。在这种情况下，失败可能已经被调度器处理了
+        //这时候如果发现该stage还在运行状态，则把它清除出运行状态，标记为失败
         if (runningStages.contains(failedStage)) {
           logInfo(s"Marking $failedStage (${failedStage.name}) as failed " +
             s"due to a fetch failure from $mapStage (${mapStage.name})")
@@ -1104,6 +1106,7 @@ class DAGScheduler(
           // Don't schedule an event to resubmit failed stages if failed isn't empty, because
           // in that case the event will already have been scheduled. eventProcessActor may be
           // null during unit tests.
+
           // TODO: Cancel running tasks in the stage
           import env.actorSystem.dispatcher
           logInfo(s"Resubmitting $mapStage (${mapStage.name}) and " +
@@ -1121,6 +1124,7 @@ class DAGScheduler(
         }
 
         // TODO: mark the executor as failed only if there were lots of fetch failures on it
+        //多次fetch失败发生在某个executor，则标记它丢失
         if (bmAddress != null) {
           handleExecutorLost(bmAddress.executorId, Some(task.epoch))
         }
@@ -1150,7 +1154,7 @@ class DAGScheduler(
     if (!failedEpoch.contains(execId) || failedEpoch(execId) < currentEpoch) {
       failedEpoch(execId) = currentEpoch
       logInfo("Executor lost: %s (epoch %d)".format(execId, currentEpoch))
-      blockManagerMaster.removeExecutor(execId)
+      blockManagerMaster.removeExecutor(execId)           //bm移除executor
       // TODO: This will be really slow if we keep accumulating shuffle map stages
       for ((shuffleId, stage) <- shuffleToMapStage) {
         stage.removeOutputsOnExecutor(execId)
@@ -1209,13 +1213,13 @@ class DAGScheduler(
       // Skip all the actions if the stage has been removed.
       return
     }
-    val dependentJobs: Seq[ActiveJob] =
-      activeJobs.filter(job => stageDependsOn(job.finalStage, failedStage)).toSeq
+    val dependentJobs: Seq[ActiveJob] =                //filter，条件为真的被保留+
+      activeJobs.filter(job => stageDependsOn(job.finalStage, failedStage)).toSeq     //job.finalStage的祖先是failedStage，如果当前活动的job依赖失败的stage
     failedStage.latestInfo.completionTime = Some(clock.getTime())
     for (job <- dependentJobs) {
-      failJobAndIndependentStages(job, s"Job aborted due to stage failure: $reason")
+      failJobAndIndependentStages(job, s"Job aborted due to stage failure: $reason")    //当前活动的job失败
     }
-    if (dependentJobs.isEmpty) {
+    if (dependentJobs.isEmpty) {       //忽略失败的stage，因为所有依赖它的stage都完成了
       logInfo("Ignoring failure of " + failedStage + " because all jobs depending on it are done")
     }
   }
@@ -1272,6 +1276,7 @@ class DAGScheduler(
 
   /**
    * Return true if one of stage's ancestors is target.
+   * 一个stage的祖先是目标stage
    */
   private def stageDependsOn(stage: Stage, target: Stage): Boolean = {
     if (stage == target) {
