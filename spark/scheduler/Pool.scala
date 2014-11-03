@@ -58,7 +58,7 @@ private[spark] class Pool(
     }
   }
 
-  override def addSchedulable(schedulable: Schedulable) {
+  override def addSchedulable(schedulable: Schedulable) {        //将相应的manager放入队列（taskSetManager或者pool）
     require(schedulable != null)
     schedulableQueue.add(schedulable)
     schedulableNameToSchedulable.put(schedulable.name, schedulable)
