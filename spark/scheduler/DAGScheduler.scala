@@ -88,9 +88,9 @@ class DAGScheduler(
   private[scheduler] def numTotalJobs: Int = nextJobId.get()
   private val nextStageId = new AtomicInteger(0)
 
-  private[scheduler] val jobIdToStageIds = new HashMap[Int, HashSet[Int]]
-  private[scheduler] val stageIdToStage = new HashMap[Int, Stage]
-  private[scheduler] val shuffleToMapStage = new HashMap[Int, Stage]
+  private[scheduler] val jobIdToStageIds = new HashMap[Int, HashSet[Int]]   //jobid到stage集合的映射
+  private[scheduler] val stageIdToStage = new HashMap[Int, Stage]    //stageid到stage类的映射
+  private[scheduler] val shuffleToMapStage = new HashMap[Int, Stage]    //
   private[scheduler] val jobIdToActiveJob = new HashMap[Int, ActiveJob]
 
   // Stages we need to run whose parents aren't done

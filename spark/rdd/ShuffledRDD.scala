@@ -31,8 +31,8 @@ private[spark] class ShuffledRDDPartition(val idx: Int) extends Partition {
 /**
  * :: DeveloperApi ::
  * The resulting RDD from a shuffle (e.g. repartitioning of data).
- * @param prev the parent RDD.
- * @param part the partitioner used to partition the RDD
+ * @param prev the parent RDD.   //父RDD
+ * @param part the partitioner used to partition the RDD    //分割当前RDD的分割器
  * @tparam K the key class.
  * @tparam V the value class.
  * @tparam C the combiner class.
