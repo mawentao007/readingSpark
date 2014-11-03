@@ -48,6 +48,8 @@ import org.apache.spark.storage.BlockManagerMessages.BlockManagerHeartbeat
  * minimal schedule to run the job. It then submits stages as TaskSets to an underlying
  * TaskScheduler implementation that runs them on the cluster.
  *
+ *
+ * 决定每个task在哪里执行，根据当前cache的信息
  * In addition to coming up with a DAG of stages, this class also determines the preferred
  * locations to run each task on, based on the current cache status, and passes these to the
  * low-level TaskScheduler. Furthermore, it handles failures due to shuffle output files being
@@ -86,9 +88,9 @@ class DAGScheduler(
   private[scheduler] def numTotalJobs: Int = nextJobId.get()
   private val nextStageId = new AtomicInteger(0)
 
-  private[scheduler] val jobIdToStageIds = new HashMap[Int, HashSet[Int]]
-  private[scheduler] val stageIdToStage = new HashMap[Int, Stage]
-  private[scheduler] val shuffleToMapStage = new HashMap[Int, Stage]
+  private[scheduler] val jobIdToStageIds = new HashMap[Int, HashSet[Int]]   //jobid到stage集合的映射
+  private[scheduler] val stageIdToStage = new HashMap[Int, Stage]    //stageid到stage类的映射
+  private[scheduler] val shuffleToMapStage = new HashMap[Int, Stage]    //
   private[scheduler] val jobIdToActiveJob = new HashMap[Int, ActiveJob]
 
   // Stages we need to run whose parents aren't done

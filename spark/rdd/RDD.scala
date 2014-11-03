@@ -297,6 +297,7 @@ abstract class RDD[T: ClassTag](
 
   /**
    * Return a new RDD containing the distinct elements in this RDD.
+   * 包含不一样的元素的rdd，去重
    */
   def distinct(): RDD[T] = distinct(partitions.size)
 

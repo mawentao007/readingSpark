@@ -22,6 +22,8 @@ import java.io.{Externalizable, ObjectInput, ObjectOutput}
 import org.apache.spark.storage.BlockManagerId
 
 /**
+ * shuffleMapTask返回给调度器的结果。包括task执行的块管理器的位置，还有输出个给每个reducer的数据大小，用来传输给reduce任务。
+ *
  * Result returned by a ShuffleMapTask to a scheduler. Includes the block manager address that the
  * task ran on as well as the sizes of outputs for each reducer, for passing on to the reduce tasks.
  * The map output sizes are compressed using MapOutputTracker.compressSize.

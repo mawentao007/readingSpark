@@ -32,6 +32,8 @@ import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.util.{Clock, SystemClock}
 
 /**
+ * 在一个TaskSet中调度一个一组task。这个类跟中每一个task，如该task失败了，就重试，通过延迟调度来进行数据局部性调度。主要的结构是resourceOffer，询问TaskSet
+ * 是否需要执行一个task，还有更新状态，告诉它task的状态已经改变。
  * Schedules the tasks within a single TaskSet in the TaskSchedulerImpl. This class keeps track of
  * each task, retries tasks if they fail (up to a limited number of times), and
  * handles locality-aware scheduling for this TaskSet via delay scheduling. The main interfaces

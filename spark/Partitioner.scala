@@ -52,11 +52,12 @@ object Partitioner {
    * Unless spark.default.parallelism is set, the number of partitions will be the
    * same as the number of partitions in the largest upstream RDD, as this should
    * be least likely to cause out-of-memory errors.
+   * 除非spark.default.parallelism被定义，否则partitions的数量将会和最大的上传rdd流的partitions的数量一致，这不太会导致内存溢出
    *
    * We use two method parameters (rdd, others) to enforce callers passing at least 1 RDD.
    */
   def defaultPartitioner(rdd: RDD[_], others: RDD[_]*): Partitioner = {
-    val bySize = (Seq(rdd) ++ others).sortBy(_.partitions.size).reverse
+    val bySize = (Seq(rdd) ++ others).sortBy(_.partitions.size).reverse    //排序找到最大的分区数量
     for (r <- bySize if r.partitioner.isDefined) {
       return r.partitioner.get
     }

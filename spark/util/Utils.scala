@@ -893,6 +893,7 @@ private[spark] object Utils extends Logging {
   private val SPARK_CLASS_REGEX = """^org\.apache\.spark(\.api\.java)?(\.util)?(\.rdd)?\.[A-Z]""".r
 
   /**
+   * 在spark 包中，当在一个类中被访问，返回用户代码类的名字，相应的类调用spark，还有该类调用的spark的方法，这个方法用来告诉用户它的每个RDD实在何处创建
    * When called inside a class in the spark package, returns the name of the user code class
    * (outside the spark package) that called into Spark, as well as which Spark method they called.
    * This is used, for example, to tell users where in their code each RDD got created.

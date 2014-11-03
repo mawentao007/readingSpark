@@ -44,6 +44,8 @@ import org.apache.spark.util.CallSite
  * scheduling is used, this allows Stages from earlier jobs to be computed first or recovered
  * faster on failure.
  *
+ * callSite提供一个位置，与stage相关，对于shuffle map stage，callSite提供一个位置，创建之后的rdd shuffle的的位置，对于result stage，
+ * callSite提供执行相应操作。
  * The callSite provides a location in user code which relates to the stage. For a shuffle map
  * stage, the callSite gives the user code that created the RDD being shuffled. For a result
  * stage, the callSite gives the user code that executes the associated action (e.g. count()).
@@ -92,7 +94,7 @@ private[spark] class Stage(
   }
 
   def addOutputLoc(partition: Int, status: MapStatus) {
-    val prevList = outputLocs(partition)
+    val prevList = outputLocs(partition)     //输出位置，就是MapStatus
     outputLocs(partition) = status :: prevList
     if (prevList == Nil) {
       numAvailableOutputs += 1
