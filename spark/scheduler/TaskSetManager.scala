@@ -62,6 +62,7 @@ private[spark] class TaskSetManager(
    * does not realize right away leading to repeated task failures. If enabled,
    * this temporarily prevents a task from re-launching on an executor where
    * it just failed.
+   * 有时候executor的失效无法立刻被察觉导致反复失败，这个字段可以阻止task立刻在刚刚失败的executor上重启
    */
   private val EXECUTOR_TASK_BLACKLIST_TIMEOUT =
     conf.getLong("spark.scheduler.executorTaskBlacklistTime", 0L)
@@ -80,7 +81,7 @@ private[spark] class TaskSetManager(
   val successful = new Array[Boolean](numTasks)
   private val numFailures = new Array[Int](numTasks)
   // key is taskId, value is a Map of executor id to when it failed
-  private val failedExecutors = new HashMap[Int, HashMap[String, Long]]()
+  private val failedExecutors = new HashMap[Int, HashMap[String, Long]]()        //key是taskID，value是失败的executorid到失效时间的映射
 
   val taskAttempts = Array.fill[List[TaskInfo]](numTasks)(Nil)
   var tasksSuccessful = 0
@@ -110,7 +111,8 @@ private[spark] class TaskSetManager(
   // back at the head of the stack. They are also only cleaned up lazily;
   // when a task is launched, it remains in all the pending lists except
   // the one that it was launched from, but gets removed from them later.
-  private val pendingTasksForExecutor = new HashMap[String, ArrayBuffer[Int]]
+  //每个executor上的task数量，作为栈来处理，可以尽快发现task失败
+  private val pendingTasksForExecutor = new HashMap[String, ArrayBuffer[Int]]        //key是executorid，value是task数组
 
   // Set of pending tasks for each host. Similar to pendingTasksForExecutor,
   // but at host level.
@@ -120,9 +122,9 @@ private[spark] class TaskSetManager(
   private val pendingTasksForRack = new HashMap[String, ArrayBuffer[Int]]
 
   // Set containing pending tasks with no locality preferences.
-  var pendingTasksWithNoPrefs = new ArrayBuffer[Int]
+  var pendingTasksWithNoPrefs = new ArrayBuffer[Int]        //没有局部性倾向的tasks
 
-  // Set containing all pending tasks (also used as a stack, as above).
+  // Set containing all pending tasks (also used as a stack, as above).           //所有的task
   val allPendingTasks = new ArrayBuffer[Int]
 
   // Tasks that can be speculated. Since these will be a small fraction of total
@@ -130,7 +132,7 @@ private[spark] class TaskSetManager(
   val speculatableTasks = new HashSet[Int]
 
   // Task index, start and finish time for each task attempt (indexed by task ID)
-  val taskInfos = new HashMap[Long, TaskInfo]
+  val taskInfos = new HashMap[Long, TaskInfo]       //每个task的起始终止时间
 
   // How frequently to reprint duplicate exceptions in full, in milliseconds
   val EXCEPTION_PRINT_INTERVAL =
@@ -150,6 +152,7 @@ private[spark] class TaskSetManager(
 
   // Add all our tasks to the pending lists. We do this in reverse order
   // of task index so that tasks with low indices get launched first.
+  //将所有的tasks加入到pending 列表，逆序加入是因为列表作为一个栈，后进先出，这样可以保证索引小的先执行
   for (i <- (0 until numTasks).reverse) {
     addPendingTask(i)
   }
@@ -173,6 +176,7 @@ private[spark] class TaskSetManager(
   /**
    * Add a task to all the pending-task lists that it should be on. If readding is set, we are
    * re-adding the task so only include it in each list if it's not already there.
+   * 将task加入到所有要加入的列表，如果是重新加入，那么只需要加入到还没加入果的列表
    */
   private def addPendingTask(index: Int, readding: Boolean = false) {
     // Utility method that adds `index` to a list only if readding=false or it's not already there
@@ -184,7 +188,7 @@ private[spark] class TaskSetManager(
 
     for (loc <- tasks(index).preferredLocations) {
       for (execId <- loc.executorId) {
-        addTo(pendingTasksForExecutor.getOrElseUpdate(execId, new ArrayBuffer))
+        addTo(pendingTasksForExecutor.getOrElseUpdate(execId, new ArrayBuffer))  //如果有execId对应的arraybuffer，就更新
       }
       addTo(pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer))
       for (rack <- sched.getRackForHost(loc.host)) {
@@ -204,6 +208,7 @@ private[spark] class TaskSetManager(
   /**
    * Return the pending tasks list for a given executor ID, or an empty list if
    * there is no map entry for that host
+   * 返回某个executor的tasks的列表或者是一个空的列表
    */
   private def getPendingTasksForExecutor(executorId: String): ArrayBuffer[Int] = {
     pendingTasksForExecutor.getOrElse(executorId, ArrayBuffer())
@@ -230,13 +235,14 @@ private[spark] class TaskSetManager(
    * Return None if the list is empty.
    * This method also cleans up any tasks in the list that have already
    * been launched, since we want that to happen lazily.
+   * 从一个list列表中取出一个task并返回索引，如果列表为空则返回None
    */
   private def findTaskFromList(execId: String, list: ArrayBuffer[Int]): Option[Int] = {
-    var indexOffset = list.size
+    var indexOffset = list.size                     //队列大小
     while (indexOffset > 0) {
-      indexOffset -= 1
-      val index = list(indexOffset)
-      if (!executorIsBlacklisted(execId, index)) {
+      indexOffset -= 1                                        //取出一个
+      val index = list(indexOffset)                           //返回相应taskId
+      if (!executorIsBlacklisted(execId, index)) {           //如果不在黑名单中
         // This should almost always be list.trimEnd(1) to remove tail
         list.remove(indexOffset)
         if (copiesRunning(index) == 0 && !successful(index)) {
@@ -255,12 +261,14 @@ private[spark] class TaskSetManager(
   /**
    * Is this re-execution of a failed task on an executor it already failed in before
    * EXECUTOR_TASK_BLACKLIST_TIMEOUT has elapsed ?
+   * 是否当前的task已经失败
    */
   private def executorIsBlacklisted(execId: String, taskId: Int): Boolean = {
-    if (failedExecutors.contains(taskId)) {
-      val failed = failedExecutors.get(taskId).get
+    if (failedExecutors.contains(taskId)) {              //是否失败的executors包含相应的taskId
+      val failed = failedExecutors.get(taskId).get       //找到（executor，失败时间）
 
-      return failed.contains(execId) &&
+
+      return failed.contains(execId) &&            //在失败列表并且失败时间小于时间窗口
         clock.getTime() - failed.get(execId).get < EXECUTOR_TASK_BLACKLIST_TIMEOUT
     }
 
@@ -340,12 +348,13 @@ private[spark] class TaskSetManager(
   }
 
   /**
+   * 从一个节点上取出一个task，返回它的index和局部性级别，只要搜索符合局部性要求的tasks
    * Dequeue a pending task for a given node and return its index and locality level.
    * Only search for tasks matching the given locality constraint.
    *
    * @return An option containing (task index within the task set, locality, is speculative?)
    */
-  private def findTask(execId: String, host: String, maxLocality: TaskLocality.Value)
+  private def findTask(execId: String, host: String, maxLocality: TaskLocality.Value)        //TaskLocality.Value是枚举类型
     : Option[(Int, TaskLocality.Value, Boolean)] =
   {
     for (index <- findTaskFromList(execId, getPendingTasksForExecutor(execId))) {
@@ -386,6 +395,7 @@ private[spark] class TaskSetManager(
   }
 
   /**
+   * 反馈一个executor发来的offer请求，从调度中找到一个task
    * Respond to an offer of a single executor from the scheduler by finding a task
    *
    * NOTE: this function is either called with a maxLocality which
@@ -751,6 +761,7 @@ private[spark] class TaskSetManager(
   /**
    * Compute the locality levels used in this TaskSet. Assumes that all tasks have already been
    * added to queues using addPendingTask.
+   * 计算taskset中的局部性基本
    *
    */
   private def computeValidLocalityLevels(): Array[TaskLocality.TaskLocality] = {

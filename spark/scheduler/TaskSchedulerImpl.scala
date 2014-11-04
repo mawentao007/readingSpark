@@ -90,7 +90,7 @@ private[spark] class TaskSchedulerImpl(
 
   // The set of executors we have on each host; this is used to compute hostsAlive, which
   // in turn is used to decide when we can attain data locality on a given host
-  protected val executorsByHost = new HashMap[String, HashSet[String]]
+  protected val executorsByHost = new HashMap[String, HashSet[String]]    //每个host上的executors数量，用来决定什么时候获得数据局部性
 
   protected val hostsByRack = new HashMap[String, HashSet[String]]
 
@@ -124,9 +124,9 @@ private[spark] class TaskSchedulerImpl(
   def initialize(backend: SchedulerBackend) {                  //在sparkContext中初始化backend
     this.backend = backend
     // temporarily set rootPool name to empty
-    rootPool = new Pool("", schedulingMode, 0, 0)
+    rootPool = new Pool("", schedulingMode, 0, 0)               //调度树的根
     schedulableBuilder = {
-      schedulingMode match {
+      schedulingMode match {                            //根据调度策略不同创建不同的树
         case SchedulingMode.FIFO =>
           new FIFOSchedulableBuilder(rootPool)
         case SchedulingMode.FAIR =>
@@ -224,11 +224,11 @@ private[spark] class TaskSchedulerImpl(
     // Mark each slave as alive and remember its hostname
     // Also track if new executor is added
     var newExecAvail = false
-    for (o <- offers) {
+    for (o <- offers) {                        //执行器到host的映射，添加新的executor
       executorIdToHost(o.executorId) = o.host
-      if (!executorsByHost.contains(o.host)) {
+      if (!executorsByHost.contains(o.host)) {                  //如果不包含相应的host，添加host
         executorsByHost(o.host) = new HashSet[String]()
-        executorAdded(o.executorId, o.host)
+        executorAdded(o.executorId, o.host)             //将相应的executor加入到host中
         newExecAvail = true
       }
       for (rack <- getRackForHost(o.host)) {
@@ -237,10 +237,11 @@ private[spark] class TaskSchedulerImpl(
     }
 
     // Randomly shuffle offers to avoid always placing tasks on the same set of workers.
-    val shuffledOffers = Random.shuffle(offers)
+    val shuffledOffers = Random.shuffle(offers)                 //随机shuffle offer防止总是将任务放到一组workders
+                                                                //offers表示WorkerOffer的序列，也就是executor的序列
     // Build a list of tasks to assign to each worker.
-    val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores))
-    val availableCpus = shuffledOffers.map(o => o.cores).toArray
+    val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores))    //对每个executor，建立一个arrayBuffer，元素个数为cpu个数，对应每个元素为任务描述符
+    val availableCpus = shuffledOffers.map(o => o.cores).toArray    //每个worker可用cpu
     val sortedTaskSets = rootPool.getSortedTaskSetQueue
     for (taskSet <- sortedTaskSets) {
       logDebug("parentName: %s, name: %s, runningTasks: %s".format(
@@ -253,16 +254,17 @@ private[spark] class TaskSchedulerImpl(
     // Take each TaskSet in our scheduling order, and then offer it each node in increasing order
     // of locality levels so that it gets a chance to launch local tasks on all of them.
     // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
+    //根据调度顺序取出每个任务集，然后根据数据局部性来提供node
     var launchedTask = false
     for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {
       do {
         launchedTask = false
-        for (i <- 0 until shuffledOffers.size) {
-          val execId = shuffledOffers(i).executorId
+        for (i <- 0 until shuffledOffers.size) {   //针对每个workers，从第一个workers开始分配任务，任务集依次取，分配每个集合内task的资源，一个节点分配不下就放到另一个。
+          val execId = shuffledOffers(i).executorId   //workers对应的executorId，workers是个抽象的概念，资源集合
           val host = shuffledOffers(i).host
           if (availableCpus(i) >= CPUS_PER_TASK) {
-            for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
-              tasks(i) += task
+            for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {   //对每个taskSet提供的executor，host，局部性等级
+              tasks(i) += task  //添加相应任务的描述符
               val tid = task.taskId
               taskIdToTaskSetId(tid) = taskSet.taskSet.id
               taskIdToExecutorId(tid) = execId

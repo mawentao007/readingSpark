@@ -29,6 +29,9 @@ import org.apache.spark.util.Utils
  * An interface to build Schedulable tree
  * buildPools: build the tree nodes(pools)
  * addTaskSetManager: build the leaf nodes(TaskSetManagers)
+ * 创建调度树的接口
+ * buildPools：创建树节点 pools
+ * addTaskSetManager：创建树叶  TaskSetManagers
  */
 private[spark] trait SchedulableBuilder {
   def rootPool: Pool
@@ -38,6 +41,8 @@ private[spark] trait SchedulableBuilder {
   def addTaskSetManager(manager: Schedulable, properties: Properties)
 }
 
+
+//FIFO是一棵只有根节点和叶子节点的两层的树
 private[spark] class FIFOSchedulableBuilder(val rootPool: Pool)
   extends SchedulableBuilder with Logging {
 
