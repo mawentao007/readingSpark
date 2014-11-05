@@ -1083,7 +1083,7 @@ class SparkContext(config: SparkConf) extends Logging {
       throw new SparkException("SparkContext has been shutdown")
     }
     val callSite = getCallSite
-    val cleanedFunc = clean(func)
+    val cleanedFunc = clean(func)        //清理一个func，清除不必要的引用等信息
     logInfo("****************************************Marvin************************ runJob")
     logInfo("Starting job: " + callSite.shortForm)
     val start = System.nanoTime
@@ -1098,6 +1098,7 @@ class SparkContext(config: SparkConf) extends Logging {
    * Run a function on a given set of partitions in an RDD and return the results as an array. The
    * allowLocal flag specifies whether the scheduler can run the computation on the driver rather
    * than shipping it out to the cluster, for short actions like first().
+   * 返回一组partitions上面执行的函数，返回一组结果
    */
   def runJob[T, U: ClassTag](
       rdd: RDD[T],

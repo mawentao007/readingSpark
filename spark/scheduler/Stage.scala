@@ -74,7 +74,7 @@ private[spark] class Stage(
   val jobIds = new HashSet[Int]         //这个stage属于哪些jobs
 
   /** For stages that are the final (consists of only ResultTasks), link to the ActiveJob. */
-  var resultOfJob: Option[ActiveJob] = None
+  var resultOfJob: Option[ActiveJob] = None    //对于final stage，和ActiveJob联系
   var pendingTasks = new HashSet[Task[_]]
 
   private var nextAttemptId = 0

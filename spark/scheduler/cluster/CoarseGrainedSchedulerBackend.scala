@@ -108,10 +108,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
 
       case StatusUpdate(executorId, taskId, state, data) =>
         scheduler.statusUpdate(taskId, state, data.value)
-        if (TaskState.isFinished(state)) {
-          if (executorActor.contains(executorId)) {
-            freeCores(executorId) += scheduler.CPUS_PER_TASK
-            makeOffers(executorId)
+        if (TaskState.isFinished(state)) {                 //如果任务已经完成
+          if (executorActor.contains(executorId)) {         //如果包含相应的executor
+            freeCores(executorId) += scheduler.CPUS_PER_TASK        //更新空闲cores的个数
+            makeOffers(executorId)           //给相应的executor分配任务
           } else {
             // Ignoring the update since we don't know about the executor.
             val msg = "Ignored task status update (%d state %s) from unknown executor %s with ID %s"
@@ -161,11 +161,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
     // Make fake resource offers on just one executor
     def makeOffers(executorId: String) {
       launchTasks(scheduler.resourceOffers(
-        Seq(new WorkerOffer(executorId, executorHost(executorId), freeCores(executorId)))))
+        Seq(new WorkerOffer(executorId, executorHost(executorId), freeCores(executorId)))))       //只给一个executor分配任务，因为resourceOffers的参数是seq，强制转换
     }
 
     // Launch tasks returned by a set of resource offers
-    def  launchTasks(tasks: Seq[Seq[TaskDescription]]) {
+    def  launchTasks(tasks: Seq[Seq[TaskDescription]]) {        //参数是任务描述符
       for (task <- tasks.flatten) {
         val ser = SparkEnv.get.closureSerializer.newInstance()
         val serializedTask = ser.serialize(task)

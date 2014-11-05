@@ -83,7 +83,7 @@ private[spark] class TaskSetManager(
   // key is taskId, value is a Map of executor id to when it failed
   private val failedExecutors = new HashMap[Int, HashMap[String, Long]]()        //key是taskID，value是失败的executorid到失效时间的映射
 
-  val taskAttempts = Array.fill[List[TaskInfo]](numTasks)(Nil)
+  val taskAttempts = Array.fill[List[TaskInfo]](numTasks)(Nil)      //一个队列，其中存放的都是TaskInfo列表
   var tasksSuccessful = 0
 
   var weight = 1
@@ -132,7 +132,7 @@ private[spark] class TaskSetManager(
   val speculatableTasks = new HashSet[Int]
 
   // Task index, start and finish time for each task attempt (indexed by task ID)
-  val taskInfos = new HashMap[Long, TaskInfo]       //每个task的起始终止时间
+  val taskInfos = new HashMap[Long, TaskInfo]       //索引是taskId，映射到taskInfo类
 
   // How frequently to reprint duplicate exceptions in full, in milliseconds
   val EXCEPTION_PRINT_INTERVAL =
@@ -186,11 +186,11 @@ private[spark] class TaskSetManager(
       }
     }
 
-    for (loc <- tasks(index).preferredLocations) {
-      for (execId <- loc.executorId) {
-        addTo(pendingTasksForExecutor.getOrElseUpdate(execId, new ArrayBuffer))  //如果有execId对应的arraybuffer，就更新
+    for (loc <- tasks(index).preferredLocations) {            //perferloc是个队列
+      for (execId <- loc.executorId) {    //executorId这个字段是option的，下面rack同理。for循环就可以简单处理option类型
+        addTo(pendingTasksForExecutor.getOrElseUpdate(execId, new ArrayBuffer))  //根据preferloc的executorId，放到对应executor的任务队列
       }
-      addTo(pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer))
+      addTo(pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer))    //根据preferoloc的host，放到host队列
       for (rack <- sched.getRackForHost(loc.host)) {
         addTo(pendingTasksForRack.getOrElseUpdate(rack, new ArrayBuffer))
       }
@@ -211,7 +211,7 @@ private[spark] class TaskSetManager(
    * 返回某个executor的tasks的列表或者是一个空的列表
    */
   private def getPendingTasksForExecutor(executorId: String): ArrayBuffer[Int] = {
-    pendingTasksForExecutor.getOrElse(executorId, ArrayBuffer())
+    pendingTasksForExecutor.getOrElse(executorId, ArrayBuffer())   //列表中有executorId，返回对应的task列表，否则返回空的列表
   }
 
   /**
@@ -235,7 +235,7 @@ private[spark] class TaskSetManager(
    * Return None if the list is empty.
    * This method also cleans up any tasks in the list that have already
    * been launched, since we want that to happen lazily.
-   * 从一个list列表中取出一个task并返回索引，如果列表为空则返回None
+   * 从一个list列表中取出一个task并返回taskId，如果列表为空则返回None
    */
   private def findTaskFromList(execId: String, list: ArrayBuffer[Int]): Option[Int] = {
     var indexOffset = list.size                     //队列大小
@@ -244,8 +244,8 @@ private[spark] class TaskSetManager(
       val index = list(indexOffset)                           //返回相应taskId
       if (!executorIsBlacklisted(execId, index)) {           //如果不在黑名单中
         // This should almost always be list.trimEnd(1) to remove tail
-        list.remove(indexOffset)
-        if (copiesRunning(index) == 0 && !successful(index)) {
+        list.remove(indexOffset)              //从列表中移除一个task
+        if (copiesRunning(index) == 0 && !successful(index)) {       //如果当前的task没有running和成功，返回taskId
           return Some(index)
         }
       }
@@ -357,11 +357,11 @@ private[spark] class TaskSetManager(
   private def findTask(execId: String, host: String, maxLocality: TaskLocality.Value)        //TaskLocality.Value是枚举类型
     : Option[(Int, TaskLocality.Value, Boolean)] =
   {
-    for (index <- findTaskFromList(execId, getPendingTasksForExecutor(execId))) {
+    for (index <- findTaskFromList(execId, getPendingTasksForExecutor(execId))) {    //从executor对应的task列表中查找
       return Some((index, TaskLocality.PROCESS_LOCAL, false))
     }
 
-    if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {
+    if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {        //如果满足host优先
       for (index <- findTaskFromList(execId, getPendingTasksForHost(host))) {
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
@@ -383,19 +383,19 @@ private[spark] class TaskSetManager(
       }
     }
 
-    if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {
+    if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {          //如果没有特别要求
       for (index <- findTaskFromList(execId, allPendingTasks)) {
         return Some((index, TaskLocality.ANY, false))
       }
     }
 
     // find a speculative task if all others tasks have been scheduled
-    findSpeculativeTask(execId, host, maxLocality).map {
+    findSpeculativeTask(execId, host, maxLocality).map {                       //如果其它的takss都被调度了，找一个特别的？？？
       case (taskIndex, allowedLocality) => (taskIndex, allowedLocality, true)}
   }
 
   /**
-   * 反馈一个executor发来的offer请求，从调度中找到一个task
+   * 反馈一个executor发来的offer请求，从调度中找到一个task，由taskSetManager调用，
    * Respond to an offer of a single executor from the scheduler by finding a task
    *
    * NOTE: this function is either called with a maxLocality which
@@ -405,6 +405,7 @@ private[spark] class TaskSetManager(
    * @param execId the executor Id of the offered resource
    * @param host  the host Id of the offered resource
    * @param maxLocality the maximum locality we want to schedule the tasks at
+   * 处理task相关的信息，本task的内容
    */
   def resourceOffer(
       execId: String,
@@ -412,12 +413,12 @@ private[spark] class TaskSetManager(
       maxLocality: TaskLocality.TaskLocality)
     : Option[TaskDescription] =
   {
-    if (!isZombie) {
+    if (!isZombie) {       //task set manager becomes a zombie
       val curTime = clock.getTime()
 
       var allowedLocality = maxLocality
 
-      if (maxLocality != TaskLocality.NO_PREF) {
+      if (maxLocality != TaskLocality.NO_PREF) {           //根据当前情况设定允许的局部性级别
         allowedLocality = getAllowedLocalityLevel(curTime)
         if (allowedLocality > maxLocality) {
           // We're not allowed to search for farther-away tasks
@@ -425,11 +426,11 @@ private[spark] class TaskSetManager(
         }
       }
 
-      findTask(execId, host, allowedLocality) match {
-        case Some((index, taskLocality, speculative)) => {
+      findTask(execId, host, allowedLocality) match {               //根据要求开始寻找task
+        case Some((index, taskLocality, speculative)) => {           //找到一个task，返回一个task描述符
           // Found a task; do some bookkeeping and return a task description
           val task = tasks(index)
-          val taskId = sched.newTaskId()
+          val taskId = sched.newTaskId()            //创建新的taskId？
           // Do various bookkeeping
           copiesRunning(index) += 1
           val attemptNum = taskAttempts(index).size
@@ -447,7 +448,7 @@ private[spark] class TaskSetManager(
           val startTime = clock.getTime()
           // We rely on the DAGScheduler to catch non-serializable closures and RDDs, so in here
           // we assume the task can be serialized without exceptions.
-          val serializedTask = Task.serializeWithDependencies(
+          val serializedTask = Task.serializeWithDependencies(            //序列化相应task
             task, sched.sc.addedFiles, sched.sc.addedJars, ser)
           if (serializedTask.limit > TaskSetManager.TASK_SIZE_TO_WARN_KB * 1024 &&
               !emittedTaskSizeWarning) {
@@ -456,7 +457,7 @@ private[spark] class TaskSetManager(
               s"(${serializedTask.limit / 1024} KB). The maximum recommended task size is " +
               s"${TaskSetManager.TASK_SIZE_TO_WARN_KB} KB.")
           }
-          addRunningTask(taskId)
+          addRunningTask(taskId)                  //增加running task的个数
 
           // We used to log the time it takes to serialize the task, but task size is already
           // a good proxy to task serialization time.
@@ -465,8 +466,8 @@ private[spark] class TaskSetManager(
           logInfo("Starting %s (TID %d, %s, %s, %d bytes)".format(
               taskName, taskId, host, taskLocality, serializedTask.limit))
 
-          sched.dagScheduler.taskStarted(task, info)
-          return Some(new TaskDescription(taskId, execId, taskName, index, serializedTask))
+          sched.dagScheduler.taskStarted(task, info)        //给dag发送任务开始消息
+          return Some(new TaskDescription(taskId, execId, taskName, index, serializedTask))   //返回task描述符
         }
         case _ =>
       }
@@ -638,6 +639,7 @@ private[spark] class TaskSetManager(
   /** If the given task ID is not in the set of running tasks, adds it.
    *
    * Used to keep track of the number of running tasks, for enforcing scheduling policies.
+    * 添加task到running tasks集合中，如果存在父调度管理器（pool or tsm，更新相应的执行任务数量）
    */
   def addRunningTask(tid: Long) {
     if (runningTasksSet.add(tid) && parent != null) {

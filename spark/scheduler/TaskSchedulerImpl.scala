@@ -157,10 +157,10 @@ private[spark] class TaskSchedulerImpl(
 
   override def submitTasks(taskSet: TaskSet) {
     logInfo("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Marvin!!!!!!!!!!!!!!!!!!!!!   submitTasks")
-    val tasks = taskSet.tasks                   //待完成的task
+    val tasks = taskSet.tasks                   //提交上来的taskSet里面的tasks
     logInfo("Adding task set " + taskSet.id + " with " + tasks.length + " tasks")
     this.synchronized {
-      val manager = new TaskSetManager(this, taskSet, maxTaskFailures)
+      val manager = new TaskSetManager(this, taskSet, maxTaskFailures)           //创建一个新的TaskSetManager
       activeTaskSets(taskSet.id) = manager               //hashMap,taskid映射相应的taskSetManager
       schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)    //创建schedulable tree，tasksetmanager是树叶，pool是节点
                                                             //添加到schedulable队列中
@@ -221,14 +221,14 @@ private[spark] class TaskSchedulerImpl(
   def resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]] = synchronized {
     SparkEnv.set(sc.env)
 
-    // Mark each slave as alive and remember its hostname
+    // Mark each slave as alive and remember its hostname   //首先找到所有可用的executors
     // Also track if new executor is added
     var newExecAvail = false
     for (o <- offers) {                        //执行器到host的映射，添加新的executor
       executorIdToHost(o.executorId) = o.host
-      if (!executorsByHost.contains(o.host)) {                  //如果不包含相应的host，添加host
+      if (!executorsByHost.contains(o.host)) {                  //如果host到executors[]的映射表不包含相应的host，添加host
         executorsByHost(o.host) = new HashSet[String]()
-        executorAdded(o.executorId, o.host)             //将相应的executor加入到host中
+        executorAdded(o.executorId, o.host)             //将相应的executor加入到host的executor队列中
         newExecAvail = true
       }
       for (rack <- getRackForHost(o.host)) {
@@ -256,33 +256,33 @@ private[spark] class TaskSchedulerImpl(
     // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
     //根据调度顺序取出每个任务集，然后根据数据局部性来提供node
     var launchedTask = false
-    for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {
+    for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {   //取出一个taskSet
       do {
         launchedTask = false
         for (i <- 0 until shuffledOffers.size) {   //针对每个workers，从第一个workers开始分配任务，任务集依次取，分配每个集合内task的资源，一个节点分配不下就放到另一个。
           val execId = shuffledOffers(i).executorId   //workers对应的executorId，workers是个抽象的概念，资源集合
           val host = shuffledOffers(i).host
           if (availableCpus(i) >= CPUS_PER_TASK) {
-            for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {   //对每个taskSet提供的executor，host，局部性等级
-              tasks(i) += task  //添加相应任务的描述符
+            for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {   //以此根据要求取出一个task，这是个迭代器，不是for循环的思路
+              tasks(i) += task  //添加相应任务的描述符,task是任务描述符，tasks是每个workOffers对应的任务描述符数组，数组个数是core个数
               val tid = task.taskId
               taskIdToTaskSetId(tid) = taskSet.taskSet.id
               taskIdToExecutorId(tid) = execId
               activeExecutorIds += execId
               executorsByHost(host) += execId
               availableCpus(i) -= CPUS_PER_TASK
-              assert(availableCpus(i) >= 0)
+              assert(availableCpus(i) >= 0)           //如果当前的Offers没法满足要求，则launchedTask为假，任务无法启动
               launchedTask = true
             }
           }
         }
-      } while (launchedTask)
+      } while (launchedTask)        //round-robin，一轮一轮的分配
     }
 
     if (tasks.size > 0) {
       hasLaunchedTask = true
     }
-    return tasks
+    return tasks          //返回每个executor的core对应的任务的描述符
   }
 
   def statusUpdate(tid: Long, state: TaskState, serializedData: ByteBuffer) {

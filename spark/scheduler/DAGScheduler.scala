@@ -619,6 +619,7 @@ class DAGScheduler(
   /**
    * Check for waiting or failed stages which are now eligible for resubmission.
    * Ordinarily run on every iteration of the event loop.
+   * 检查等待或者失败的stages，查看是否准备好重新提交
    *
    */
   private def submitWaitingStages() {
@@ -694,7 +695,7 @@ class DAGScheduler(
   private def activeJobForStage(stage: Stage): Option[Int] = {
     logInfo("*******************************Marvin**************************  activeJobForStage")
     val jobsThatUseStage: Array[Int] = stage.jobIds.toArray.sorted
-    jobsThatUseStage.find(jobIdToActiveJob.contains)
+    jobsThatUseStage.find(jobIdToActiveJob.contains)    //括号里是用来计算的函数作为参数，用队列中的元素放入函数依次进行检验，为真则返回
   }
 
   private[scheduler] def handleJobGroupCancelled(groupId: String) {
@@ -793,7 +794,7 @@ class DAGScheduler(
     * */
   private def submitStage(stage: Stage) {
     logInfo("+++++++++++++++++Marvin++++++++++++++++++++++++++submitStage(" + stage + ")")
-    val jobId = activeJobForStage(stage)                      //找到要用到这个stage的最早创建的active job
+    val jobId = activeJobForStage(stage)                      //找到要用到这个stage的最早创建的active job，查找stage对应的job中的ActiveJob
     if (jobId.isDefined) {
       logDebug("submitStage(" + stage + ")")
       if (!waitingStages(stage) && !runningStages(stage) && !failedStages(stage)) {    //如果这个stage没在三个哈希集合里面
@@ -828,7 +829,8 @@ class DAGScheduler(
     // First figure out the indexes of partition ids to compute.
     val partitionsToCompute: Seq[Int] = {
       if (stage.isShuffleMap) {
-        (0 until stage.numPartitions).filter(id => stage.outputLocs(id) == Nil)         //outputLocs是记录partitions的MapStatus的list，查看相应partition的list是否为空，为空过滤掉。
+        (0 until stage.numPartitions).filter(id => stage.outputLocs(id) == Nil)         //outputLocs是记录partitions的MapStatus的list，
+                                                                                        //查看相应partition的list是否为空,为空表示还没有输出，需要计算
       } else {
         val job = stage.resultOfJob.get
         (0 until job.numPartitions).filter(id => !job.finished(id))        //过滤掉未完成的job
@@ -863,9 +865,9 @@ class DAGScheduler(
       // For ResultTask, serialize and broadcast (rdd, func).  result依赖整个RDD，shuffle需要依赖部分或者整体，所以序列化shuffle
       val taskBinaryBytes: Array[Byte] =                        //序列化
         if (stage.isShuffleMap) {
-          closureSerializer.serialize((stage.rdd, stage.shuffleDep.get) : AnyRef).array()
+          closureSerializer.serialize((stage.rdd, stage.shuffleDep.get) : AnyRef).array()  //序列化stage的rdd和依赖
         } else {
-          closureSerializer.serialize((stage.rdd, stage.resultOfJob.get.func) : AnyRef).array()
+          closureSerializer.serialize((stage.rdd, stage.resultOfJob.get.func) : AnyRef).array()  //序列化rdd和函数？？
         }
       taskBinary = sc.broadcast(taskBinaryBytes)
     } catch {

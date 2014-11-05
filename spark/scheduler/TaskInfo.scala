@@ -24,6 +24,7 @@ import org.apache.spark.annotation.DeveloperApi
 /**
  * :: DeveloperApi ::
  * Information about a running task attempt inside a TaskSet.
+ * 关于一个任务集中要进行执行的任务的信息
  */
 @DeveloperApi
 class TaskInfo(
