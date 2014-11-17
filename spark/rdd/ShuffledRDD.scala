@@ -31,6 +31,7 @@ private[spark] class ShuffledRDDPartition(val idx: Int) extends Partition {
 /**
  * :: DeveloperApi ::
  * The resulting RDD from a shuffle (e.g. repartitioning of data).
+ * shuffle的resulting RDD，例如对数据重新分块
  * @param prev the parent RDD.   //父RDD
  * @param part the partitioner used to partition the RDD    //分割当前RDD的分割器
  * @tparam K the key class.
@@ -76,7 +77,7 @@ class ShuffledRDD[K, V, C](
     this
   }
 
-  override def getDependencies: Seq[Dependency[_]] = {
+  override def getDependencies: Seq[Dependency[_]] = {            //根据父rdd的分块器来创建shuffle依赖
     List(new ShuffleDependency(prev, part, serializer, keyOrdering, aggregator, mapSideCombine))
   }
 

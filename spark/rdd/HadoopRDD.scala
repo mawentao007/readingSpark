@@ -189,7 +189,7 @@ class HadoopRDD[K, V](
   override def compute(theSplit: Partition, context: TaskContext): InterruptibleIterator[(K, V)] = {
     val iter = new NextIterator[(K, V)] {
 
-      val split = theSplit.asInstanceOf[HadoopPartition]
+      val split = theSplit.asInstanceOf[HadoopPartition]        //HadoopPartition列表
       logInfo("Input split: " + split.inputSplit)
       var reader: RecordReader[K, V] = null
       val jobConf = getJobConf()

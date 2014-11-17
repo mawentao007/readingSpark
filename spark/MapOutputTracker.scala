@@ -224,12 +224,13 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
   extends MapOutputTracker(conf) {
 
   /** Cache a serialized version of the output statuses for each shuffle to send them out faster */
-  private var cacheEpoch = epoch
+  private var cacheEpoch = epoch     //版本号，记录每个shuffle的输出状态，是发送速度加快
 
   /**
    * Timestamp based HashMap for storing mapStatuses and cached serialized statuses in the master,
    * so that statuses are dropped only by explicit de-registering or by TTL-based cleaning (if set).
    * Other than these two scenarios, nothing should be dropped from this HashMap.
+   * 时间戳哈系映射，用来存储map状态，缓存序列化状态
    */
   protected val mapStatuses = new TimeStampedHashMap[Int, Array[MapStatus]]()
   private val cachedSerializedStatuses = new TimeStampedHashMap[Int, Array[Byte]]()
@@ -238,16 +239,16 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
   private val metadataCleaner =
     new MetadataCleaner(MetadataCleanerType.MAP_OUTPUT_TRACKER, this.cleanup, conf)
 
-  def registerShuffle(shuffleId: Int, numMaps: Int) {
+  def registerShuffle(shuffleId: Int, numMaps: Int) {               //将相应的shuffle放入时间戳映射表
     if (mapStatuses.put(shuffleId, new Array[MapStatus](numMaps)).isDefined) {
       throw new IllegalArgumentException("Shuffle ID " + shuffleId + " registered twice")
     }
   }
 
   def registerMapOutput(shuffleId: Int, mapId: Int, status: MapStatus) {
-    val array = mapStatuses(shuffleId)
+    val array = mapStatuses(shuffleId)   //shuffleId对应的mapstatus队列
     array.synchronized {
-      array(mapId) = status
+      array(mapId) = status          //队列中添加相应的map的状态
     }
   }
 
@@ -293,7 +294,7 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
     }
   }
 
-  def getSerializedMapOutputStatuses(shuffleId: Int): Array[Byte] = {
+  def getSerializedMapOutputStatuses(shuffleId: Int): Array[Byte] = {       //获得已经序列化的shuffle对应的mapStatus
     var statuses: Array[MapStatus] = null
     var epochGotten: Long = -1
     epochLock.synchronized {
@@ -363,7 +364,7 @@ private[spark] object MapOutputTracker {
   }
 
   // Opposite of serializeMapStatuses.
-  def deserializeMapStatuses(bytes: Array[Byte]): Array[MapStatus] = {
+  def deserializeMapStatuses(bytes: Array[Byte]): Array[MapStatus] = {          //返回一列MapStatus结果
     val objIn = new ObjectInputStream(new GZIPInputStream(new ByteArrayInputStream(bytes)))
     objIn.readObject().asInstanceOf[Array[MapStatus]]
   }

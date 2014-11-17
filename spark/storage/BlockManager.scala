@@ -54,19 +54,19 @@ private[spark] class BlockResult(
 }
 
 private[spark] class BlockManager(
-    executorId: String,
+    executorId: String,                             //执行器
     actorSystem: ActorSystem,
     val master: BlockManagerMaster,
     defaultSerializer: Serializer,
     maxMemory: Long,
     val conf: SparkConf,
     securityManager: SecurityManager,
-    mapOutputTracker: MapOutputTracker,
-    shuffleManager: ShuffleManager)
+    mapOutputTracker: MapOutputTracker,                   //输出跟踪器
+    shuffleManager: ShuffleManager)                       //shuffle管理器
   extends BlockDataProvider with Logging {
 
   private val port = conf.getInt("spark.blockManager.port", 0)
-  val shuffleBlockManager = new ShuffleBlockManager(this, shuffleManager)
+  val shuffleBlockManager = new ShuffleBlockManager(this, shuffleManager)      //创建shuffleBlockManager
   val diskBlockManager = new DiskBlockManager(shuffleBlockManager, conf)
   val connectionManager =
     new ConnectionManager(port, conf, securityManager, "Connection manager for block manager")

@@ -30,8 +30,8 @@ private[spark] class HashShuffleWriter[K, V](
     context: TaskContext)
   extends ShuffleWriter[K, V] with Logging {
 
-  private val dep = handle.dependency
-  private val numOutputSplits = dep.partitioner.numPartitions
+  private val dep = handle.dependency   //依赖
+  private val numOutputSplits = dep.partitioner.numPartitions     //partition的个数就是split的个数
   private val metrics = context.taskMetrics
 
   // Are we in the process of stopping? Because map tasks can call stop() with success = true
@@ -45,7 +45,7 @@ private[spark] class HashShuffleWriter[K, V](
   private val blockManager = SparkEnv.get.blockManager
   private val shuffleBlockManager = blockManager.shuffleBlockManager
   private val ser = Serializer.getSerializer(dep.serializer.getOrElse(null))
-  private val shuffle = shuffleBlockManager.forMapTask(dep.shuffleId, mapId, numOutputSplits, ser,
+  private val shuffle = shuffleBlockManager.forMapTask(dep.shuffleId, mapId, numOutputSplits, ser,        //important
     writeMetrics)
 
   /** Write a bunch of records to this task's output */
@@ -64,7 +64,7 @@ private[spark] class HashShuffleWriter[K, V](
 
     for (elem <- iter) {
       val bucketId = dep.partitioner.getPartition(elem._1)
-      shuffle.writers(bucketId).write(elem)
+      shuffle.writers(bucketId).write(elem)            //向相应的partition里面写入元素
     }
   }
 

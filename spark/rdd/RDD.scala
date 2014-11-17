@@ -60,12 +60,12 @@ import org.apache.spark.util.random.{BernoulliSampler, PoissonSampler, SamplingU
  *
  * Internally, each RDD is characterized by five main properties:
  *
- *  - A list of partitions
- *  - A function for computing each split
- *  - A list of dependencies on other RDDs
- *  - Optionally, a Partitioner for key-value RDDs (e.g. to say that the RDD is hash-partitioned)
+ *  - A list of partitions     //分快列表
+ *  - A function for computing each split   //计算每个分块的函数
+ *  - A list of dependencies on other RDDs      //依赖的rdd列表
+ *  - Optionally, a Partitioner for key-value RDDs (e.g. to say that the RDD is hash-partitioned)         //一个分块器，对于kv模式的rdd
  *  - Optionally, a list of preferred locations to compute each split on (e.g. block locations for
- *    an HDFS file)
+ *    an HDFS file)      //每个分块倾向的输出位置
  *
  * All of the scheduling and execution in Spark is done based on these methods, allowing each RDD
  * to implement its own way of computing itself. Indeed, users can implement custom RDDs (e.g. for
@@ -83,6 +83,9 @@ abstract class RDD[T: ClassTag](
     this(oneParent.context , List(new OneToOneDependency(oneParent)))
 
   private[spark] def conf = sc.conf
+
+  //Marvin API
+  def printName() = println(this.getClass.getName)
   // =======================================================================
   // Methods that should be implemented by subclasses of RDD
   // =======================================================================
@@ -181,6 +184,7 @@ abstract class RDD[T: ClassTag](
 
   // Our dependencies and partitions will be gotten by calling subclass's methods below, and will
   // be overwritten when we're checkpointed
+  //依赖和分块可以通过调用子类方法获得，在被check之后可能被覆盖
   private var dependencies_ : Seq[Dependency[_]] = null
   @transient private var partitions_ : Array[Partition] = null
 
@@ -206,7 +210,7 @@ abstract class RDD[T: ClassTag](
    * RDD is checkpointed or not.
    */
   final def partitions: Array[Partition] = {
-    checkpointRDD.map(_.partitions).getOrElse {
+    checkpointRDD.map(_.partitions).getOrElse {          //checkpointRDD可能为none
       if (partitions_ == null) {
         partitions_ = getPartitions
       }
@@ -220,6 +224,8 @@ abstract class RDD[T: ClassTag](
    */
   final def preferredLocations(split: Partition): Seq[String] = {
     checkpointRDD.map(_.getPreferredLocations(split)).getOrElse {
+//      println("getOrElse")
+
       getPreferredLocations(split)
     }
   }
@@ -265,6 +271,7 @@ abstract class RDD[T: ClassTag](
 
   /**
    * Compute an RDD partition or read it from a checkpoint if the RDD is checkpointing.
+   * 计算一个rdd的partition或者从checkpoint读
    */
   private[spark] def computeOrReadCheckpoint(split: Partition, context: TaskContext): Iterator[T] =
   {
@@ -293,8 +300,8 @@ abstract class RDD[T: ClassTag](
   /**
    * Return a new RDD containing the distinct elements in this RDD.
    */
-  def distinct(numPartitions: Int)(implicit ord: Ordering[T] = null): RDD[T] =
-    map(x => (x, null)).reduceByKey((x, y) => x, numPartitions).map(_._1)
+  def distinct(numPartitions: Int)(implicit ord: Ordering[T] = null): RDD[T] =    //参数为分块大小
+    map(x => (x, null)).reduceByKey((x, y) => x, numPartitions).map(_._1)         //为了调用reduceByKey特意多加的map？numPartitions表示reduce后的分块大小，传递给partitioner
 
   /**
    * Return a new RDD containing the distinct elements in this RDD.
@@ -632,6 +639,7 @@ abstract class RDD[T: ClassTag](
    *
    * `preservesPartitioning` indicates whether the input function preserves the partitioner, which
    * should be `false` unless this is a pair RDD and the input function doesn't modify the keys.
+   * 通过将函数作用在rdd的每个partition上来返回一个新的rdd
    */
   @DeveloperApi
   def mapPartitionsWithContext[U: ClassTag](
@@ -786,7 +794,7 @@ abstract class RDD[T: ClassTag](
    * Return an array that contains all of the elements in this RDD.
    */
   def collect(): Array[T] = {
-    val results = sc.runJob(this, (iter: Iterator[T]) => iter.toArray)
+    val results = sc.runJob(this, (iter: Iterator[T]) => iter.toArray)     //对象就是RDD本身，操作就是对任何一个迭代器对象，生成一个队列
     Array.concat(results: _*)
   }
 
@@ -1291,7 +1299,7 @@ abstract class RDD[T: ClassTag](
    * Changes the dependencies of this RDD from its original parents to a new RDD (`newRDD`)
    * created from the checkpoint file, and forget its old dependencies and partitions.
    */
-  private[spark] def markCheckpointed(checkpointRDD: RDD[_]) {
+  private[spark] def markCheckpointed(checkpointRDD: RDD[_]) {     //更新rdd的以来，从原来的副rdd更新到newRDD，从check文件创建
     clearDependencies()
     partitions_ = null
     deps = null    // Forget the constructor argument for dependencies too

@@ -34,6 +34,7 @@ private[spark] object CheckpointState extends Enumeration {
 }
 
 /**
+ * 这个类包含所有的rdd 检查点相关信息。每个实例都和一个RDD相关联。它管理相关rdd创建检查点的过程，同时管理post检查点状态的过程
  * This class contains all the information related to RDD checkpointing. Each instance of this
  * class is associated with a RDD. It manages process of checkpointing of the associated RDD,
  * as well as, manages the post-checkpoint state by providing the updated partitions,
@@ -48,20 +49,20 @@ private[spark] class RDDCheckpointData[T: ClassTag](@transient rdd: RDD[T])
   var cpState = Initialized
 
   // The file to which the associated RDD has been checkpointed to
-  @transient var cpFile: Option[String] = None
+  @transient var cpFile: Option[String] = None        //rdd被check的文件的位置
 
   // The CheckpointRDD created from the checkpoint file, that is, the new parent the associated RDD.
-  var cpRDD: Option[RDD[T]] = None
+  var cpRDD: Option[RDD[T]] = None        //从checkpoint文件创建的checkpointRdd，相关rdd的新的父rdd
 
   // Mark the RDD for checkpointing
-  def markForCheckpoint() {
+  def markForCheckpoint() {                   //标记当前的rdd for check
     RDDCheckpointData.synchronized {
       if (cpState == Initialized) cpState = MarkedForCheckpoint
     }
   }
 
   // Is the RDD already checkpointed
-  def isCheckpointed: Boolean = {
+  def isCheckpointed: Boolean = {         //当前的rdd已经被checked了
     RDDCheckpointData.synchronized { cpState == Checkpointed }
   }
 
@@ -71,10 +72,10 @@ private[spark] class RDDCheckpointData[T: ClassTag](@transient rdd: RDD[T])
   }
 
   // Do the checkpointing of the RDD. Called after the first job using that RDD is over.
-  def doCheckpoint() {
+  def doCheckpoint() {             //第一个用这个RDD的job完成的时候check这个rdd
     // If it is marked for checkpointing AND checkpointing is not already in progress,
     // then set it to be in progress, else return
-    RDDCheckpointData.synchronized {
+    RDDCheckpointData.synchronized {              //先将状态更改为正在check
       if (cpState == MarkedForCheckpoint) {
         cpState = CheckpointingInProgress
       } else {
@@ -83,17 +84,17 @@ private[spark] class RDDCheckpointData[T: ClassTag](@transient rdd: RDD[T])
     }
 
     // Create the output path for the checkpoint
-    val path = new Path(rdd.context.checkpointDir.get, "rdd-" + rdd.id)
-    val fs = path.getFileSystem(rdd.context.hadoopConfiguration)
+    val path = new Path(rdd.context.checkpointDir.get, "rdd-" + rdd.id)    //创建检查点输出路径
+    val fs = path.getFileSystem(rdd.context.hadoopConfiguration)            //文件系统路径
     if (!fs.mkdirs(path)) {
       throw new SparkException("Failed to create checkpoint path " + path)
     }
 
     // Save to file, and reload it as an RDD
-    val broadcastedConf = rdd.context.broadcast(
+    val broadcastedConf = rdd.context.broadcast(                      //广播hadoop配置
       new SerializableWritable(rdd.context.hadoopConfiguration))
-    rdd.context.runJob(rdd, CheckpointRDD.writeToFile[T](path.toString, broadcastedConf) _)
-    val newRDD = new CheckpointRDD[T](rdd.context, path.toString)
+    rdd.context.runJob(rdd, CheckpointRDD.writeToFile[T](path.toString, broadcastedConf) _)  //运行job
+    val newRDD = new CheckpointRDD[T](rdd.context, path.toString)    //创建新的CheckpointRDD
     if (newRDD.partitions.size != rdd.partitions.size) {
       throw new SparkException(
         "Checkpoint RDD " + newRDD + "(" + newRDD.partitions.size + ") has different " +
@@ -101,10 +102,10 @@ private[spark] class RDDCheckpointData[T: ClassTag](@transient rdd: RDD[T])
     }
 
     // Change the dependencies and partitions of the RDD
-    RDDCheckpointData.synchronized {
+    RDDCheckpointData.synchronized {     //更改这个rdd的以来和partitions
       cpFile = Some(path.toString)
       cpRDD = Some(newRDD)
-      rdd.markCheckpointed(newRDD)   // Update the RDD's dependencies and partitions
+      rdd.markCheckpointed(newRDD)   // Update the RDD's dependencies and partitions  更新rdd的以来和分区
       cpState = Checkpointed
     }
     logInfo("Done checkpointing RDD " + rdd.id + " to " + path + ", new parent is RDD " + newRDD.id)

@@ -83,7 +83,7 @@ private[spark] class TaskSetManager(
   // key is taskId, value is a Map of executor id to when it failed
   private val failedExecutors = new HashMap[Int, HashMap[String, Long]]()        //key是taskID，value是失败的executorid到失效时间的映射
 
-  val taskAttempts = Array.fill[List[TaskInfo]](numTasks)(Nil)      //一个队列，其中存放的都是TaskInfo列表
+  val taskAttempts = Array.fill[List[TaskInfo]](numTasks)(Nil)      //一个队列，其中存放的都是TaskInfo列表,队列元素的个数就是task的个数
   var tasksSuccessful = 0
 
   var weight = 1
@@ -101,6 +101,7 @@ private[spark] class TaskSetManager(
   // task set is aborted (for example, because it was killed).  TaskSetManagers remain in the zombie
   // state until all tasks have finished running; we keep TaskSetManagers that are in the zombie
   // state in order to continue to track and account for the running tasks.
+  //当这个taskSetManager上没有task应该被启动时候这个字段为真，当每个task都至少成功运行一次，或者这个taskSet被废除，当所有的task都完成运行，状态解除。
   // TODO: We should kill any running task attempts when the task set manager becomes a zombie.
   var isZombie = false
 
@@ -253,7 +254,9 @@ private[spark] class TaskSetManager(
     None
   }
 
-  /** Check whether a task is currently running an attempt on a given host */
+  /** Check whether a task is currently running an attempt on a given host
+    * 检查是否一个task正在运行在一个host上
+    * */
   private def hasAttemptOnHost(taskIndex: Int, host: String): Boolean = {
     taskAttempts(taskIndex).exists(_.host == host)
   }
@@ -433,11 +436,11 @@ private[spark] class TaskSetManager(
           val taskId = sched.newTaskId()            //创建新的taskId？
           // Do various bookkeeping
           copiesRunning(index) += 1
-          val attemptNum = taskAttempts(index).size
+          val attemptNum = taskAttempts(index).size        //已经尝试的次数
           val info = new TaskInfo(taskId, index, attemptNum, curTime,
             execId, host, taskLocality, speculative)
           taskInfos(taskId) = info
-          taskAttempts(index) = info :: taskAttempts(index)
+          taskAttempts(index) = info :: taskAttempts(index)          //将新的taskInfo加入task对应的尝试执行的列表中
           // Update our locality level for delay scheduling
           // NO_PREF will not affect the variables related to delay scheduling
           if (maxLocality != TaskLocality.NO_PREF) {
@@ -511,7 +514,7 @@ private[spark] class TaskSetManager(
 
   def handleTaskGettingResult(tid: Long) = {
     val info = taskInfos(tid)
-    info.markGettingResult()
+    info.markGettingResult()    //标记获得结果的时间
     sched.dagScheduler.taskGettingResult(info)
   }
 
@@ -545,6 +548,7 @@ private[spark] class TaskSetManager(
   /**
    * Marks the task as failed, re-adds it to the list of pending tasks, and notifies the
    * DAG Scheduler.
+   * 将task标记为failed，重新加入到pending列表中，并通知DAG Scheduler
    */
   def handleFailedTask(tid: Long, state: TaskState, reason: TaskEndReason) {
     val info = taskInfos(tid)
@@ -613,8 +617,8 @@ private[spark] class TaskSetManager(
     // always add to failed executors
     failedExecutors.getOrElseUpdate(index, new HashMap[String, Long]()).
       put(info.executorId, clock.getTime())
-    sched.dagScheduler.taskEnded(tasks(index), reason, null, null, info, taskMetrics)
-    addPendingTask(index)
+    sched.dagScheduler.taskEnded(tasks(index), reason, null, null, info, taskMetrics)    //通知调度器这个task结束了
+    addPendingTask(index)                 //添加到pending队列中
     if (!isZombie && state != TaskState.KILLED) {
       assert (null != failureReason)
       numFailures(index) += 1

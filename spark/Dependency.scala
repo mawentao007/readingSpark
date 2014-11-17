@@ -52,6 +52,7 @@ abstract class NarrowDependency[T](_rdd: RDD[T]) extends Dependency[T] {
 
 /**
  * :: DeveloperApi ::
+ * 表示一个shuffle stage上的依赖，rdd是transient的因为不需要在executor上
  * Represents a dependency on the output of a shuffle stage. Note that in the case of shuffle,
  * the RDD is transient since we don't need it on the executor side.
  *
@@ -64,7 +65,7 @@ abstract class NarrowDependency[T](_rdd: RDD[T]) extends Dependency[T] {
 @DeveloperApi
 class ShuffleDependency[K, V, C](
     @transient _rdd: RDD[_ <: Product2[K, V]],
-    val partitioner: Partitioner,
+    val partitioner: Partitioner,                 //rdd分区方式
     val serializer: Option[Serializer] = None,
     val keyOrdering: Option[Ordering[K]] = None,
     val aggregator: Option[Aggregator[K, V, C]] = None,
@@ -78,7 +79,7 @@ class ShuffleDependency[K, V, C](
   val shuffleHandle: ShuffleHandle = _rdd.context.env.shuffleManager.registerShuffle(
     shuffleId, _rdd.partitions.size, this)
 
-  _rdd.sparkContext.cleaner.foreach(_.registerShuffleForCleanup(this))
+  _rdd.sparkContext.cleaner.foreach(_.registerShuffleForCleanup(this))    //父rdd的每个部分
 }
 
 

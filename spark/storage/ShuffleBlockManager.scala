@@ -44,22 +44,28 @@ private[spark] trait ShuffleWriterGroup {
  * Manages assigning disk-based block writers to shuffle tasks. Each shuffle task gets one file
  * per reducer (this set of files is called a ShuffleFileGroup).
  *
+ * 作为一个优化，用来减少物理shuffle的文件生成，多个shuffle块被聚合成同一个文件。每个reducer有一个文件，并发执行shuffle task
+ * 当一个task完成写shuffle文件，它释放该文件给其他task
  * As an optimization to reduce the number of physical shuffle files produced, multiple shuffle
  * blocks are aggregated into the same file. There is one "combined shuffle file" per reducer
  * per concurrently executing shuffle task. As soon as a task finishes writing to its shuffle
  * files, it releases them for another task.
  * Regarding the implementation of this feature, shuffle files are identified by a 3-tuple:
- *   - shuffleId: The unique id given to the entire shuffle stage.
- *   - bucketId: The id of the output partition (i.e., reducer id)
+ *   - shuffleId: The unique id given to the entire shuffle stage.     //一个shuffle stage的唯一的标志
+ *   - bucketId: The id of the output partition (i.e., reducer id)     //输出的块的id
  *   - fileId: The unique id identifying a group of "combined shuffle files." Only one task at a
  *       time owns a particular fileId, and this id is returned to a pool when the task finishes.
+ *       一组合并文件唯一拥有的，一个时间内只有一个task拥有fileId，当这个task完成时，这个fileId被返回给pool
  * Each shuffle file is then mapped to a FileSegment, which is a 3-tuple (file, offset, length)
  * that specifies where in a given file the actual block data is located.
+ * 每个shuffle file最后被合并到一个文件片。
  *
  * Shuffle file metadata is stored in a space-efficient manner. Rather than simply mapping
  * ShuffleBlockIds directly to FileSegments, each ShuffleFileGroup maintains a list of offsets for
  * each block stored in each file. In order to find the location of a shuffle block, we search the
  * files within a ShuffleFileGroups associated with the block's reducer.
+ * shuffle file的元数据用一种高效的方式存储。比起直接将shuffleblockids映射到文件快，每个shufflefilegroup维护一个偏移列表，给存储在每个文件中的块
+ * 在寻找相应shuffle块的时候，我们查找相应的文件。
  */
 // TODO: Factor this into a separate class for each ShuffleManager implementation
 private[spark]
@@ -73,7 +79,7 @@ class ShuffleBlockManager(blockManager: BlockManager,
     conf.getBoolean("spark.shuffle.consolidateFiles", false)
 
   // Are we using sort-based shuffle?
-  val sortBasedShuffle = shuffleManager.isInstanceOf[SortShuffleManager]
+  val sortBasedShuffle = shuffleManager.isInstanceOf[SortShuffleManager] //查看是否是sort shuffle实例
 
   private val bufferSize = conf.getInt("spark.shuffle.file.buffer.kb", 32) * 1024
 
@@ -83,8 +89,8 @@ class ShuffleBlockManager(blockManager: BlockManager,
    */
   private class ShuffleState(val numBuckets: Int) {
     val nextFileId = new AtomicInteger(0)
-    val unusedFileGroups = new ConcurrentLinkedQueue[ShuffleFileGroup]()
-    val allFileGroups = new ConcurrentLinkedQueue[ShuffleFileGroup]()
+    val unusedFileGroups = new ConcurrentLinkedQueue[ShuffleFileGroup]()   //未使用的shuffle文件组
+    val allFileGroups = new ConcurrentLinkedQueue[ShuffleFileGroup]()        //已经创建的所有文件的组
 
     /**
      * The mapIds of all map tasks completed on this Executor for this shuffle.

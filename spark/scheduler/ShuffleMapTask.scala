@@ -56,17 +56,18 @@ private[spark] class ShuffleMapTask(
   }
 
   override def runTask(context: TaskContext): MapStatus = {                //由executor的调用task的run方法来执行
+    logInfo("@@@@@@@@@@@@@@@@@@@@@@@@@Marvin@@@@@@@@@@@@@@@@@@ shuffleMapTask")
     // Deserialize the RDD using the broadcast variable.
     val ser = SparkEnv.get.closureSerializer.newInstance()                //创建新的序列器的实例
     val (rdd, dep) = ser.deserialize[(RDD[_], ShuffleDependency[_, _, _])](           //反序列化，返回RDD和SD
-      ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
+      ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)   //参数是二进制文件和当前线程的classloader
 
     metrics = Some(context.taskMetrics)          //监控器
     var writer: ShuffleWriter[Any, Any] = null
     try {
       val manager = SparkEnv.get.shuffleManager
       writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)   //map task写入
-      writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
+      writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])   //写iterator
       return writer.stop(success = true).get
     } catch {
       case e: Exception =>

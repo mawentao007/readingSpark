@@ -47,9 +47,9 @@ private[spark] class CoarseGrainedExecutorBackend(
   var driver: ActorSelection = null
 
   override def preStart() {
-    logInfo("Connecting to driver: " + driverUrl)
+    logInfo("Connecting to driver: " + driverUrl)         //driverUrl是参数，通过这个参数来找到driver对应的actor并跟它通信
     driver = context.actorSelection(driverUrl)
-    driver ! RegisterExecutor(executorId, hostPort, cores)        //注册executor
+    driver ! RegisterExecutor(executorId, hostPort, cores)        //注册executor,driver就是CoarseGrainedSchedulerBackend
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
   }
 

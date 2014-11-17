@@ -31,7 +31,7 @@ import org.apache.spark.{TaskContext, ShuffleDependency}
 private[spark] trait ShuffleManager {
   /**
    * Register a shuffle with the manager and obtain a handle for it to pass to tasks.
-   * 注册一个shuffle，获得句柄用来传递task
+   * 注册一个shuffle，获得句柄用来传递给task
    */
   def registerShuffle[K, V, C](
       shuffleId: Int,

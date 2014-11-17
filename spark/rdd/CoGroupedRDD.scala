@@ -86,12 +86,12 @@ class CoGroupedRDD[K](@transient var rdds: Seq[RDD[_ <: Product2[K, _]]], part: 
 
   override def getDependencies: Seq[Dependency[_]] = {
     rdds.map { rdd: RDD[_ <: Product2[K, _]] =>
-      if (rdd.partitioner == Some(part)) {
+      if (rdd.partitioner == Some(part)) {     //如果依赖的rdd的分块器和当前的是一样的，说明他们属于同一个rdd，是一对一的依赖
         logDebug("Adding one-to-one dependency with " + rdd)
         new OneToOneDependency(rdd)
       } else {
         logDebug("Adding shuffle dependency with " + rdd)
-        new ShuffleDependency[K, Any, CoGroupCombiner](rdd, part, serializer)
+        new ShuffleDependency[K, Any, CoGroupCombiner](rdd, part, serializer)   //创建新的ShuffleDependency，参数是依赖的rdd，分块器和序列器
       }
     }
   }

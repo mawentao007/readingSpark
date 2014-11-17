@@ -22,7 +22,7 @@ import scala.reflect.ClassTag
 import org.apache.spark.{Partition, TaskContext}
 
 private[spark]
-class MappedRDD[U: ClassTag, T: ClassTag](prev: RDD[T], f: T => U)
+class MappedRDD[U: ClassTag, T: ClassTag](prev: RDD[T], f: T => U)        //参数为rdd和func
   extends RDD[U](prev) {
 
   override def getPartitions: Array[Partition] = firstParent[T].partitions

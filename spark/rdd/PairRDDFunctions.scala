@@ -57,6 +57,7 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
   with Serializable
 {
   /**
+   * 动态函数，用用户定义函数来合并每个key的元素。将kv变kc
    * Generic function to combine the elements for each key using a custom set of aggregation
    * functions. Turns an RDD[(K, V)] into a result of type RDD[(K, C)], for a "combined type" C
    * Note that V and C can be different -- for example, one might group an RDD of type
@@ -85,14 +86,14 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
       }
     }
     val aggregator = new Aggregator[K, V, C](createCombiner, mergeValue, mergeCombiners)
-    if (self.partitioner == Some(partitioner)) {
+    if (self.partitioner == Some(partitioner)) {   //分块器不变的情况
       self.mapPartitionsWithContext((context, iter) => {
         new InterruptibleIterator(context, aggregator.combineValuesByKey(iter, context))
       }, preservesPartitioning = true)
     } else {
       new ShuffledRDD[K, V, C](self, partitioner)
         .setSerializer(serializer)
-        .setAggregator(aggregator)
+        .setAggregator(aggregator)          //合并器
         .setMapSideCombine(mapSideCombine)
     }
   }
@@ -255,18 +256,23 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
    * Merge the values for each key using an associative reduce function. This will also perform
    * the merging locally on each mapper before sending results to a reducer, similarly to a
    * "combiner" in MapReduce.
+   * 合并每个key的值，通过一个相关的reduce函数，这也会在发送结果给reducer之前在每个mapper本地执行merge，类似MapReduce里面的combiner
    */
   def reduceByKey(partitioner: Partitioner, func: (V, V) => V): RDD[(K, V)] = {
     combineByKey[V]((v: V) => v, func, func, partitioner)
   }
+  //createCombiner`, which turns a V into a C (e.g., creates a one-element list)
+  //* - `mergeValue`, to merge a V into a C (e.g., adds it to the end of a list)
+  //* - `mergeCombiners`, to combine two C's into a single one.
 
   /**
    * Merge the values for each key using an associative reduce function. This will also perform
    * the merging locally on each mapper before sending results to a reducer, similarly to a
    * "combiner" in MapReduce. Output will be hash-partitioned with numPartitions partitions.
+   * 合并每个k，通过利用后面的reduce函数。
    */
   def reduceByKey(func: (V, V) => V, numPartitions: Int): RDD[(K, V)] = {
-    reduceByKey(new HashPartitioner(numPartitions), func)
+    reduceByKey(new HashPartitioner(numPartitions), func)   //创建hash分块器，func就是(x,y)=>x
   }
 
   /**
@@ -417,6 +423,7 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
   }
 
   /**
+   * 将一个key对应的多个值放入一个队列，运行通过partitioner来控制kv对rdd结果的分区
    * Group the values for each key in the RDD into a single sequence. Allows controlling the
    * partitioning of the resulting key-value pair RDD by passing a Partitioner.
    *
@@ -611,6 +618,7 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
   }
 
   /**
+   * 给kv对rdd的每个单元传递值，不更改k，保存原始rdd分块。
    * Pass each value in the key-value pair RDD through a flatMap function without changing the
    * keys; this also retains the original RDD's partitioning.
    */
@@ -623,6 +631,7 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
    * For each key k in `this` or `other1` or `other2` or `other3`,
    * return a resulting RDD that contains a tuple with the list of values
    * for that key in `this`, `other1`, `other2` and `other3`.
+   * 对于每个key，在this.....中，返回一个结果RDD，包含this...中这个（key，对应值的列表）。
    */
   def cogroup[W1, W2, W3](other1: RDD[(K, W1)],
       other2: RDD[(K, W2)],

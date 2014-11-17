@@ -23,6 +23,7 @@ import org.apache.spark.shuffle._
 /**
  * A ShuffleManager using hashing, that creates one output file per reduce partition on each
  * mapper (possibly reusing these across waves of tasks).
+ * 每个mapper的reduce分块创建一个输出文件
  */
 private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager {
   /* Register a shuffle with the manager and obtain a handle for it to pass to tasks. */

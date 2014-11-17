@@ -307,7 +307,7 @@ class SparkContext(config: SparkConf) extends Logging {
   executorEnvs("SPARK_USER") = sparkUser
 
   // Create and start the scheduler
-  private[spark] var taskScheduler = SparkContext.createTaskScheduler(this, master)  //创建taskScheduler
+  private[spark] var taskScheduler = SparkContext.createTaskScheduler(this, master)  //创建初始taskScheduler
   private val heartbeatReceiver = env.actorSystem.actorOf(
     Props(new HeartbeatReceiver(taskScheduler)), "HeartbeatReceiver")
   @volatile private[spark] var dagScheduler: DAGScheduler = _
@@ -804,7 +804,9 @@ class SparkContext(config: SparkConf) extends Logging {
    * Broadcast a read-only variable to the cluster, returning a
    * [[org.apache.spark.broadcast.Broadcast]] object for reading it in distributed functions.
    * The variable will be sent to each cluster only once.
+   * 向集群中广播一个只读的变量，返回一个bc对象，在分布式函数中读取它
    */
+
   def broadcast[T: ClassTag](value: T): Broadcast[T] = {
     val bc = env.broadcastManager.newBroadcast[T](value, isLocal)
     cleaner.foreach(_.registerBroadcastForCleanup(bc))
@@ -1084,7 +1086,7 @@ class SparkContext(config: SparkConf) extends Logging {
     }
     val callSite = getCallSite
     val cleanedFunc = clean(func)        //清理一个func，清除不必要的引用等信息
-    logInfo("****************************************Marvin************************ runJob")
+//    logInfo("****************************************Marvin************************ runJob")
     logInfo("Starting job: " + callSite.shortForm)
     val start = System.nanoTime
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, allowLocal,

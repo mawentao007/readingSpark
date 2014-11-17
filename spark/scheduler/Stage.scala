@@ -63,11 +63,11 @@ private[spark] class Stage(
     val jobId: Int,
     val callSite: CallSite)
   extends Logging {
-  logInfo("***********************Marvin****************************  Stage")
+//  logInfo("***********************Marvin****************************  Stage")
 
   val isShuffleMap = shuffleDep.isDefined
   val numPartitions = rdd.partitions.size
-  val outputLocs = Array.fill[List[MapStatus]](numPartitions)(Nil)
+  val outputLocs = Array.fill[List[MapStatus]](numPartitions)(Nil)    //stage的输出队列是一个数组
   var numAvailableOutputs = 0
 
   /** Set of jobs that this stage belongs to. */
@@ -84,6 +84,16 @@ private[spark] class Stage(
 
   /** Pointer to the latest [StageInfo] object, set by DAGScheduler. */
   var latestInfo: StageInfo = StageInfo.fromStage(this)
+
+//Marvin API
+  def printStageInfo(): Unit ={
+    println("(StageId is " + this.id + ";  " +
+      "rdd is " +   this.rdd.getClass.getName.split("\\.").last + ")")
+ //     ";  JobId is  " + this.jobId)
+ //     "; ShuffleDep is" + this.shuffleDep.foreach( x => println(x.rdd.getClass.getName )))
+      }
+
+
 
   def isAvailable: Boolean = {
     if (!isShuffleMap) {

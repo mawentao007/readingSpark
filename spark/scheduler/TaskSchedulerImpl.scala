@@ -156,7 +156,7 @@ private[spark] class TaskSchedulerImpl(
   }
 
   override def submitTasks(taskSet: TaskSet) {
-    logInfo("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Marvin!!!!!!!!!!!!!!!!!!!!!   submitTasks")
+//    logInfo("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Marvin!!!!!!!!!!!!!!!!!!!!!   submitTasks")
     val tasks = taskSet.tasks                   //提交上来的taskSet里面的tasks
     logInfo("Adding task set " + taskSet.id + " with " + tasks.length + " tasks")
     this.synchronized {
@@ -289,7 +289,7 @@ private[spark] class TaskSchedulerImpl(
     var failedExecutor: Option[String] = None
     synchronized {
       try {
-        if (state == TaskState.LOST && taskIdToExecutorId.contains(tid)) {           //task丢失，移除executor
+        if (state == TaskState.LOST && taskIdToExecutorId.contains(tid)) {           //executor整个丢失
           // We lost this entire executor, so remember that it's gone
           val execId = taskIdToExecutorId(tid)
           if (activeExecutorIds.contains(execId)) {
@@ -299,17 +299,17 @@ private[spark] class TaskSchedulerImpl(
         }
         taskIdToTaskSetId.get(tid) match {
           case Some(taskSetId) =>
-            if (TaskState.isFinished(state)) {
+            if (TaskState.isFinished(state)) {                //如果task已经完成，从两个映射表中移除
               taskIdToTaskSetId.remove(tid)
               taskIdToExecutorId.remove(tid)
             }
-            activeTaskSets.get(taskSetId).foreach { taskSet =>
+            activeTaskSets.get(taskSetId).foreach { taskSet =>     //对于taskSet中的每个task，如果状态是finished，就移除正在执行的相应的task
               if (state == TaskState.FINISHED) {
                 taskSet.removeRunningTask(tid)
-                taskResultGetter.enqueueSuccessfulTask(taskSet, tid, serializedData)
-              } else if (Set(TaskState.FAILED, TaskState.KILLED, TaskState.LOST).contains(state)) {
-                taskSet.removeRunningTask(tid)
-                taskResultGetter.enqueueFailedTask(taskSet, tid, state, serializedData)
+                taskResultGetter.enqueueSuccessfulTask(taskSet, tid, serializedData)    //并将结果和id放入成功的task队列
+              } else if (Set(TaskState.FAILED, TaskState.KILLED, TaskState.LOST).contains(state)) {  //如果task失败
+                taskSet.removeRunningTask(tid)                              //从正在运行的task中移除
+                taskResultGetter.enqueueFailedTask(taskSet, tid, state, serializedData)   //放入failedTask队列中
               }
             }
           case None =>

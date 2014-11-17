@@ -26,6 +26,7 @@ import org.apache.spark.util.Utils
 
 /**
  * Runs a thread pool that deserializes and remotely fetches (if necessary) task results.
+ * 获取task结果
  */
 private[spark] class TaskResultGetter(sparkEnv: SparkEnv, scheduler: TaskSchedulerImpl)
   extends Logging {
@@ -97,7 +98,7 @@ private[spark] class TaskResultGetter(sparkEnv: SparkEnv, scheduler: TaskSchedul
               "Could not deserialize TaskEndReason: ClassNotFound with classloader " + loader)
           case ex: Exception => {}
         }
-        scheduler.handleFailedTask(taskSetManager, tid, taskState, reason)
+        scheduler.handleFailedTask(taskSetManager, tid, taskState, reason)              //发送给调度器来处理
       }
     })
   }

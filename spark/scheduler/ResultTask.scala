@@ -45,7 +45,7 @@ private[spark] class ResultTask[T, U](
     partition: Partition,
     @transient locs: Seq[TaskLocation],
     val outputId: Int)
-  extends Task[U](stageId, partition.index) with Serializable {
+  extends Task[U](stageId, partition.index) with Serializable  with Logging {
 
   @transient private[this] val preferredLocs: Seq[TaskLocation] = {
     if (locs == null) Nil else locs.toSet.toSeq
@@ -53,6 +53,7 @@ private[spark] class ResultTask[T, U](
 
   override def runTask(context: TaskContext): U = {
     // Deserialize the RDD and the func using the broadcast variables.
+    logInfo("$$$$$$$$$$$$$$$$$$$$$$$$$$$Marvin$$$$$$$$$$$$$$$$$$$$  resultTask")
     val ser = SparkEnv.get.closureSerializer.newInstance()
     val (rdd, func) = ser.deserialize[(RDD[T], (TaskContext, Iterator[T]) => U)](
       ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
