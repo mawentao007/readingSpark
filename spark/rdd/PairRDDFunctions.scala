@@ -63,16 +63,16 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
    * Note that V and C can be different -- for example, one might group an RDD of type
    * (Int, Int) into an RDD of type (Int, Seq[Int]). Users provide three functions:
    *
-   * - `createCombiner`, which turns a V into a C (e.g., creates a one-element list)
-   * - `mergeValue`, to merge a V into a C (e.g., adds it to the end of a list)
+   * - `createCombiner`, which turns a V into a C (e.g., creates a one-element list)   //v变为c
+   * - `mergeValue`, to merge a V into a C (e.g., adds it to the end of a list)        //将v合并为c
    * - `mergeCombiners`, to combine two C's into a single one.
    *
    * In addition, users can control the partitioning of the output RDD, and whether to perform
    * map-side aggregation (if a mapper can produce multiple items with the same key).
    */
-  def combineByKey[C](createCombiner: V => C,
-      mergeValue: (C, V) => C,
-      mergeCombiners: (C, C) => C,
+  def combineByKey[C](createCombiner: V => C,       //v->v
+      mergeValue: (C, V) => C,          //x,y->x
+      mergeCombiners: (C, C) => C,      //x,y->x
       partitioner: Partitioner,
       mapSideCombine: Boolean = true,
       serializer: Serializer = null): RDD[(K, C)] = {
@@ -85,7 +85,7 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
         throw new SparkException("Default partitioner cannot partition array keys.")
       }
     }
-    val aggregator = new Aggregator[K, V, C](createCombiner, mergeValue, mergeCombiners)
+    val aggregator = new Aggregator[K, V, C](createCombiner, mergeValue, mergeCombiners)  //合并器
     if (self.partitioner == Some(partitioner)) {   //分块器不变的情况
       self.mapPartitionsWithContext((context, iter) => {
         new InterruptibleIterator(context, aggregator.combineValuesByKey(iter, context))
@@ -487,7 +487,7 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
    * pair (k, (v, None)) if no elements in `other` have key k. Uses the given Partitioner to
    * partition the output RDD.
    */
-  def leftOuterJoin[W](other: RDD[(K, W)], partitioner: Partitioner): RDD[(K, (V, Option[W]))] = {
+  def leftOuterJoin[W](other: RDD[(K, W)], partitioner: Partitioner): RDD[(K, (V, Option[Any]))] = {
     this.cogroup(other, partitioner).flatMapValues { pair =>
       if (pair._2.isEmpty) {
         pair._1.map(v => (v, None))
@@ -503,8 +503,7 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
    * pair (k, (None, w)) if no elements in `this` have key k. Uses the given Partitioner to
    * partition the output RDD.
    */
-  def rightOuterJoin[W](other: RDD[(K, W)], partitioner: Partitioner)
-      : RDD[(K, (Option[V], W))] = {
+  def rightOuterJoin[W](other: RDD[(K, W)], partitioner: Partitioner):RDD[(K, (Option[V], W))] = {
     this.cogroup(other, partitioner).flatMapValues { pair =>
       if (pair._1.isEmpty) {
         pair._2.map(w => (None, w))

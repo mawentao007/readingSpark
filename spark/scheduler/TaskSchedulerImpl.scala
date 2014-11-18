@@ -239,6 +239,14 @@ private[spark] class TaskSchedulerImpl(
     // Randomly shuffle offers to avoid always placing tasks on the same set of workers.
     val shuffledOffers = Random.shuffle(offers)                 //随机shuffle offer防止总是将任务放到一组workders
                                                                 //offers表示WorkerOffer的序列，也就是executor的序列
+    //Marvin
+ /*   def RRShuffle(offers:Seq[WorkerOffer]):Seq[WorkerOffer]={
+      val sortedOffer = new ArrayBuffer[WorkerOffer](offers.length)
+
+
+
+    }
+    */
     // Build a list of tasks to assign to each worker.
     val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores))    //对每个executor，建立一个arrayBuffer，元素个数为cpu个数，对应每个元素为任务描述符
     val availableCpus = shuffledOffers.map(o => o.cores).toArray    //每个worker可用cpu
@@ -256,7 +264,7 @@ private[spark] class TaskSchedulerImpl(
     // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
     //根据调度顺序取出每个任务集，然后根据数据局部性来提供node
     var launchedTask = false
-    for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {   //取出一个taskSet
+    for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {   //取出一个taskSet，计算出taskSet中最高的局部性需求
       do {
         launchedTask = false
         for (i <- 0 until shuffledOffers.size) {   //针对每个workers，从第一个workers开始分配任务，任务集依次取，分配每个集合内task的资源，一个节点分配不下就放到另一个。

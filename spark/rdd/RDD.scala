@@ -213,6 +213,7 @@ abstract class RDD[T: ClassTag](
     checkpointRDD.map(_.partitions).getOrElse {          //checkpointRDD可能为none
       if (partitions_ == null) {
         partitions_ = getPartitions
+        logInfo("~~~~~~~~~~~~~~~~~~Marvin~~~~~~~~~~~~~~~~ partition.size is " + partitions_.size)
       }
       partitions_
     }
@@ -301,7 +302,7 @@ abstract class RDD[T: ClassTag](
    * Return a new RDD containing the distinct elements in this RDD.
    */
   def distinct(numPartitions: Int)(implicit ord: Ordering[T] = null): RDD[T] =    //参数为分块大小
-    map(x => (x, null)).reduceByKey((x, y) => x, numPartitions).map(_._1)         //为了调用reduceByKey特意多加的map？numPartitions表示reduce后的分块大小，传递给partitioner
+    map(x => (x, null)).reduceByKey((x, y) => x, numPartitions).map(_._1)         //为了调用reduceByKey特意多加的map,numPartitions表示reduce分块的个数，将reduce后的结果分发到这些块中
 
   /**
    * Return a new RDD containing the distinct elements in this RDD.

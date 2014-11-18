@@ -892,7 +892,7 @@ class DAGScheduler(
 
     val tasks: Seq[Task[_]] = if (stage.isShuffleMap) {      //计算tasks队列，一个partition对应一个task
       partitionsToCompute.map { id =>
-        stage.printStageInfo()
+//        stage.printStageInfo()
         val locs = getPreferredLocs(stage.rdd, id)    //比较倾向的输出位置
         val part = stage.rdd.partitions(id)
         new ShuffleMapTask(stage.id, taskBinary, part, locs)
@@ -908,6 +908,7 @@ class DAGScheduler(
     }
 
     if (tasks.size > 0) {
+      logInfo("~~~~~~~~~~~~~~~~Marvin~~~~~~~~~~~~~ tasks.size " + tasks.size )
       // Preemptively serialize a task to make sure it can be serialized. We are catching this
       // exception here because it would be fairly hard to catch the non-serializable exception
       // down the road, where we have several different implementations for local scheduler and
@@ -951,7 +952,7 @@ class DAGScheduler(
   /**
    * Responds to a task finishing. This is called inside the event loop so it assumes that it can
    * modify the scheduler's internal state. Use taskEnded() to post a task end event from outside.
-   * 相应一个task结束。在事件循环内部，被认为可以改变调度器内部状态。
+   * 相应一个task结束
    */
   private[scheduler] def handleTaskCompletion(event: CompletionEvent) {
     val task = event.task

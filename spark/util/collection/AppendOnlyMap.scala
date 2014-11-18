@@ -25,6 +25,7 @@ import org.apache.spark.annotation.DeveloperApi
 
 /**
  * :: DeveloperApi ::
+ * 只有append操作，键永远不会被删除，但是值可能改变
  * A simple open hash table optimized for the append-only use case, where keys
  * are never removed, but the value for each key may be changed.
  *

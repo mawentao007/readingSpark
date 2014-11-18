@@ -43,14 +43,14 @@ case class Aggregator[K, V, C] (
   def combineValuesByKey(iter: Iterator[_ <: Product2[K, V]],
                          context: TaskContext): Iterator[(K, C)] = {
     if (!externalSorting) {
-      val combiners = new AppendOnlyMap[K,C]
+      val combiners = new AppendOnlyMap[K,C]               //创建map
       var kv: Product2[K, V] = null
       val update = (hadValue: Boolean, oldValue: C) => {
-        if (hadValue) mergeValue(oldValue, kv._2) else createCombiner(kv._2)
+        if (hadValue) mergeValue(oldValue, kv._2) else createCombiner(kv._2)    //如果有值，根据函数来合并值，没有的话进行转化即可
       }
       while (iter.hasNext) {
         kv = iter.next()
-        combiners.changeValue(kv._1, update)
+        combiners.changeValue(kv._1, update)  //根据更新函数来改变数据
       }
       combiners.iterator
     } else {

@@ -145,6 +145,7 @@ private[spark] class TaskSetManager(
   val recentExceptions = HashMap[String, (Int, Long)]()
 
   // Figure out the current map output tracker epoch and set it on all tasks
+  //给当前taskSetManager中所有的task分配一个epoch
   val epoch = sched.mapOutputTracker.getEpoch
   logDebug("Epoch for " + taskSet + ": " + epoch)
   for (t <- tasks) {
@@ -190,7 +191,7 @@ private[spark] class TaskSetManager(
     for (loc <- tasks(index).preferredLocations) {            //perferloc是个队列
       for (execId <- loc.executorId) {    //executorId这个字段是option的，下面rack同理。for循环就可以简单处理option类型
         addTo(pendingTasksForExecutor.getOrElseUpdate(execId, new ArrayBuffer))  //根据preferloc的executorId，放到对应executor的任务队列
-      }
+      }                                                                          //存在execId对应的任务队列，则把task放入，没有的话给相应的executor创建一个队列
       addTo(pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer))    //根据preferoloc的host，放到host队列
       for (rack <- sched.getRackForHost(loc.host)) {
         addTo(pendingTasksForRack.getOrElseUpdate(rack, new ArrayBuffer))
@@ -421,10 +422,11 @@ private[spark] class TaskSetManager(
 
       var allowedLocality = maxLocality
 
-      if (maxLocality != TaskLocality.NO_PREF) {           //根据当前情况设定允许的局部性级别
+      if (maxLocality != TaskLocality.NO_PREF) {           //根据当前情况设定允许的局部性级别，级别越低，要求越严格
         allowedLocality = getAllowedLocalityLevel(curTime)
         if (allowedLocality > maxLocality) {
           // We're not allowed to search for farther-away tasks
+          //允许的级别高，不用再找其它的了
           allowedLocality = maxLocality
         }
       }
@@ -486,6 +488,7 @@ private[spark] class TaskSetManager(
 
   /**
    * Get the level we can launch tasks according to delay scheduling, based on current wait time.
+   * 根据调度延迟，决定task的调度级别
    */
   private def getAllowedLocalityLevel(curTime: Long): TaskLocality.TaskLocality = {
     while (curTime - lastLaunchTime >= localityWaits(currentLocalityIndex) &&
@@ -493,6 +496,7 @@ private[spark] class TaskSetManager(
     {
       // Jump to the next locality level, and remove our waiting time for the current one since
       // we don't want to count it again on the next one
+      //跳到下一个级别，删除当前的等待时间
       lastLaunchTime += localityWaits(currentLocalityIndex)
       currentLocalityIndex += 1
     }
@@ -767,7 +771,7 @@ private[spark] class TaskSetManager(
   /**
    * Compute the locality levels used in this TaskSet. Assumes that all tasks have already been
    * added to queues using addPendingTask.
-   * 计算taskset中的局部性基本
+   * 计算taskset中的局部性
    *
    */
   private def computeValidLocalityLevels(): Array[TaskLocality.TaskLocality] = {

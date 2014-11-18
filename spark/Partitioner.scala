@@ -76,6 +76,7 @@ object Partitioner {
  * Java arrays have hashCodes that are based on the arrays' identities rather than their contents,
  * so attempting to partition an RDD[Array[_]] or RDD[(Array[_], _)] using a HashPartitioner will
  * produce an unexpected or incorrect result.
+ * hashCodes依据是队列的id，而不是内容，所以用HashPartitioner分区队列类的rdd可能会导致结果错误
  */
 class HashPartitioner(partitions: Int) extends Partitioner {
   def numPartitions = partitions
@@ -96,6 +97,7 @@ class HashPartitioner(partitions: Int) extends Partitioner {
 }
 
 /**
+ * 对排序结果进行分区，分发到比较接近的区段，根据的是RDD的内容。
  * A [[org.apache.spark.Partitioner]] that partitions sortable records by range into roughly
  * equal ranges. The ranges are determined by sampling the content of the RDD passed in.
  *
