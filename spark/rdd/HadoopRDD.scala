@@ -179,6 +179,8 @@ class HadoopRDD[K, V](
       inputFormat.asInstanceOf[Configurable].setConf(jobConf)
     }
     val inputSplits = inputFormat.getSplits(jobConf, minPartitions)      //分区的个数可以配置，有一个最小个数
+    //Marvin
+    inputSplits.foreach(x=>println(x))       //按行平均切割
     val array = new Array[Partition](inputSplits.size)            //创建Partition array
     for (i <- 0 until inputSplits.size) {
       array(i) = new HadoopPartition(id, i, inputSplits(i))           //生成HadoopPartition放入array

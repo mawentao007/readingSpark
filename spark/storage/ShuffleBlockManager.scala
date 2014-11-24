@@ -119,17 +119,17 @@ class ShuffleBlockManager(blockManager: BlockManager,
    * Get a ShuffleWriterGroup for the given map task, which will register it as complete
    * when the writers are closed successfully
    */
-  def forMapTask(shuffleId: Int, mapId: Int, numBuckets: Int, serializer: Serializer,
+  def forMapTask(shuffleId: Int, mapId: Int, numBuckets: Int, serializer: Serializer,   //partition个数就是numBuckets
       writeMetrics: ShuffleWriteMetrics) = {
-    new ShuffleWriterGroup {
+    new ShuffleWriterGroup {                                  //创建了一个ShuffleWriterGroup，返回值就是这个group
       shuffleStates.putIfAbsent(shuffleId, new ShuffleState(numBuckets))
       private val shuffleState = shuffleStates(shuffleId)
       private var fileGroup: ShuffleFileGroup = null
 
-      val writers: Array[BlockObjectWriter] = if (consolidateShuffleFiles) {
+      val writers: Array[BlockObjectWriter] = if (consolidateShuffleFiles) {  //返回BlockObjectWriter队列
         fileGroup = getUnusedFileGroup()
-        Array.tabulate[BlockObjectWriter](numBuckets) { bucketId =>
-          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)
+        Array.tabulate[BlockObjectWriter](numBuckets) { bucketId =>              //tabulate，返回一个数组，numBuckets个，值是后面函数计算的
+          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)                //bucketId就是数组下标
           blockManager.getDiskWriter(blockId, fileGroup(bucketId), serializer, bufferSize,
             writeMetrics)
         }

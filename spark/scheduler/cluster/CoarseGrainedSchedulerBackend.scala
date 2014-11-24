@@ -71,7 +71,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, actorSystem: A
 
     private val executorActor = new HashMap[String, ActorRef]     //executor到actor的映射
     private val executorAddress = new HashMap[String, Address]
-    private val executorHost = new HashMap[String, String]
+    private val executorHost = new HashMap[String, String]    //所有主机位置
     private val freeCores = new HashMap[String, Int]
     private val totalCores = new HashMap[String, Int]
     private val addressToExecutorId = new HashMap[Address, String]

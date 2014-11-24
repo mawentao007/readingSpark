@@ -33,10 +33,21 @@ private[spark] class MapStatus(var location: BlockManagerId, var compressedSizes
 
   def this() = this(null, null)  // For deserialization only
 
+  //Marvin
+  def marvinPrintMapStatus: Unit ={
+    println("BlockManagerId is " + location)
+    compressedSizes.foreach(f=>println("size is + " + f))
+  }
+
   def writeExternal(out: ObjectOutput) {
     location.writeExternal(out)
     out.writeInt(compressedSizes.length)
     out.write(compressedSizes)
+
+    //marvin
+    println("BlockManagerId is " + location)
+    compressedSizes.foreach(f=>println("size is " + f))
+    //-marvin
   }
 
   def readExternal(in: ObjectInput) {

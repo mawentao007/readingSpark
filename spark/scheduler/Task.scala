@@ -85,6 +85,7 @@ private[spark] abstract class Task[T](val stageId: Int, var partitionId: Int) ex
    * code and user code to properly handle the flag. This function should be idempotent so it can
    * be called multiple times.
    * If interruptThread is true, we will also call Thread.interrupt() on the Task's executor thread.
+   * 设定打断标志位为真，这个函数必须是幂等的，才可能被多次调用
    */
   def kill(interruptThread: Boolean) {
     _killed = true

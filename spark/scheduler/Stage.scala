@@ -67,7 +67,7 @@ private[spark] class Stage(
 
   val isShuffleMap = shuffleDep.isDefined
   val numPartitions = rdd.partitions.size
-  val outputLocs = Array.fill[List[MapStatus]](numPartitions)(Nil)    //stage的输出队列是一个数组
+  val outputLocs = Array.fill[List[MapStatus]](numPartitions)(Nil)    //stage的输出队列是一个数组,每个partition对应一组MapStatus，包含输出的位置信息
   var numAvailableOutputs = 0
 
   /** Set of jobs that this stage belongs to. */
@@ -103,7 +103,7 @@ private[spark] class Stage(
     }
   }
 
-  def addOutputLoc(partition: Int, status: MapStatus) {
+  def addOutputLoc(partition: Int, status: MapStatus) {    //增加partition输出位置
     val prevList = outputLocs(partition)     //输出位置，就是MapStatus
     outputLocs(partition) = status :: prevList
     if (prevList == Nil) {

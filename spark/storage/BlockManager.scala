@@ -598,6 +598,7 @@ private[spark] class BlockManager(
    * A short circuited method to get a block writer that can write data directly to disk.
    * The Block will be appended to the File specified by filename. Callers should handle error
    * cases.
+   * 获得一个方法，可以直接写磁盘，相应的块被放入相应名字的文件中
    */
   def getDiskWriter(
       blockId: BlockId,

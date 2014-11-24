@@ -82,14 +82,17 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
    * This HashMap has different behavior for the master and the workers.
    *
    * On the master, it serves as the source of map outputs recorded from ShuffleMapTasks.
+   * 在master端，作为从ShuffleMapTask是来的map outputs记录的数据源
    * On the workers, it simply serves as a cache, in which a miss triggers a fetch from the
    * master's corresponding HashMap.
+   * 在worker端作为缓存
    */
   protected val mapStatuses: Map[Int, Array[MapStatus]]
 
   /**
    * Incremented every time a fetch fails so that client nodes know to clear
    * their cache of map output locations if this happens.
+   * 每次fetch失败的时候增加一个，客户端节点可以清除map output位置缓存。
    */
   protected var epoch: Long = 0
   protected val epochLock = new AnyRef
@@ -100,6 +103,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
   /**
    * Send a message to the trackerActor and get its result within a default timeout, or
    * throw a SparkException if this fails.
+   * 发送消息给trackerActor，获取它的结果
    */
   protected def askTracker(message: Any): Any = {
     try {
@@ -112,7 +116,9 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     }
   }
 
-  /** Send a one-way message to the trackerActor, to which we expect it to reply with true. */
+  /** Send a one-way message to the trackerActor, to which we expect it to reply with true.
+    * 发送一个单向消息给trackerActor
+    * */
   protected def sendTracker(message: Any) {
     val response = askTracker(message)
     if (response != true) {
@@ -124,6 +130,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
   /**
    * Called from executors to get the server URIs and output sizes of the map outputs of
    * a given shuffle.
+   * executors调用，获得server 资源地址，一个给定shuffle的map输出的大小
    */
   def getServerStatuses(shuffleId: Int, reduceId: Int): Array[(BlockManagerId, Long)] = {
     val statuses = mapStatuses.get(shuffleId).orNull
@@ -340,6 +347,7 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
 /**
  * MapOutputTracker for the workers, which fetches map output information from the driver's
  * MapOutputTrackerMaster.
+ * worker端，从驱动端MapOutputTrackerMaster获得map输出消息
  */
 private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTracker(conf) {
   protected val mapStatuses = new HashMap[Int, Array[MapStatus]]

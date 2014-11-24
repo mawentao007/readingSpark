@@ -48,7 +48,9 @@ private[spark] class HashShuffleWriter[K, V](
   private val shuffle = shuffleBlockManager.forMapTask(dep.shuffleId, mapId, numOutputSplits, ser,        //important
     writeMetrics)
 
-  /** Write a bunch of records to this task's output */
+  /** Write a bunch of records to this task's output
+    * 写一组记录到task的输出
+    * */
   override def write(records: Iterator[_ <: Product2[K, V]]): Unit = {
     val iter = if (dep.aggregator.isDefined) {
       if (dep.mapSideCombine) {
@@ -102,11 +104,11 @@ private[spark] class HashShuffleWriter[K, V](
   }
 
   private def commitWritesAndBuildStatus(): MapStatus = {
-    // Commit the writes. Get the size of each bucket block (total block size).
+    // Commit the writes. Get the size of each bucket block (total block size).   //提交写，获得每个bucket block的大小
     val compressedSizes = shuffle.writers.map { writer: BlockObjectWriter =>
       writer.commitAndClose()
       val size = writer.fileSegment().length
-      MapOutputTracker.compressSize(size)
+      MapOutputTracker.compressSize(size)          //计算出压缩后的大小
     }
 
     new MapStatus(blockManager.blockManagerId, compressedSizes)

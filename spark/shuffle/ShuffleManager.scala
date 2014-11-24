@@ -20,7 +20,7 @@ package org.apache.spark.shuffle
 import org.apache.spark.{TaskContext, ShuffleDependency}
 
 /**
- * 在driver和executors两端都要被创建，driver用它来注册shuffles，执行去可以请求读写数据
+ * 在driver和executors两端都要被创建，driver用它来注册shuffles，执行可以请求读写数据
  * Pluggable interface for shuffle systems. A ShuffleManager is created in SparkEnv on both the
  * driver and executors, based on the spark.shuffle.manager setting. The driver registers shuffles
  * with it, and executors (or tasks running locally in the driver) can ask to read and write data.

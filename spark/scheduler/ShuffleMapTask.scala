@@ -37,7 +37,7 @@ import org.apache.spark.shuffle.ShuffleWriter
  * @param taskBinary broadcast version of of the RDD and the ShuffleDependency. Once deserialized,
  *                   the type should be (RDD[_], ShuffleDependency[_, _, _]).
  * @param partition partition of the RDD this task is associated with
- * @param locs preferred task execution locations for locality scheduling
+ * @param locs preferred task execution locations for locality scheduling    //局部性调度，task执行的位置的局部性要求
  */
 private[spark] class ShuffleMapTask(
     stageId: Int,
@@ -56,7 +56,6 @@ private[spark] class ShuffleMapTask(
   }
 
   override def runTask(context: TaskContext): MapStatus = {                //由executor的调用task的run方法来执行
-    logInfo("@@@@@@@@@@@@@@@@@@@@@@@@@Marvin@@@@@@@@@@@@@@@@@@ shuffleMapTask")
     // Deserialize the RDD using the broadcast variable.
     val ser = SparkEnv.get.closureSerializer.newInstance()                //创建新的序列器的实例
     val (rdd, dep) = ser.deserialize[(RDD[_], ShuffleDependency[_, _, _])](           //反序列化，返回RDD和SD

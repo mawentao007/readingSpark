@@ -18,23 +18,20 @@
 package org.apache.spark.scheduler
 
 import java.nio.ByteBuffer
-import java.util.{TimerTask, Timer}
 import java.util.concurrent.atomic.AtomicLong
+import java.util.{Timer, TimerTask}
 
+import org.apache.spark.TaskState.TaskState
+import org.apache.spark._
+import org.apache.spark.executor.TaskMetrics
+import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
+import org.apache.spark.storage.BlockManagerId
+import org.apache.spark.util.Utils
+
+import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.concurrent.duration._
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.HashMap
-import scala.collection.mutable.HashSet
 import scala.language.postfixOps
 import scala.util.Random
-
-import org.apache.spark._
-import org.apache.spark.TaskState.TaskState
-import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
-import org.apache.spark.util.Utils
-import org.apache.spark.executor.TaskMetrics
-import org.apache.spark.storage.BlockManagerId
-import akka.actor.Props
 
 /**
  * Schedules tasks for multiple types of clusters by acting through a SchedulerBackend.
@@ -264,14 +261,15 @@ private[spark] class TaskSchedulerImpl(
     // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
     //根据调度顺序取出每个任务集，然后根据数据局部性来提供node
     var launchedTask = false
-    for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {   //取出一个taskSet，计算出taskSet中最高的局部性需求
+    for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {   //取出一个taskSet，取出taskSet中每个task的约束
       do {
+
         launchedTask = false
         for (i <- 0 until shuffledOffers.size) {   //针对每个workers，从第一个workers开始分配任务，任务集依次取，分配每个集合内task的资源，一个节点分配不下就放到另一个。
           val execId = shuffledOffers(i).executorId   //workers对应的executorId，workers是个抽象的概念，资源集合
           val host = shuffledOffers(i).host
           if (availableCpus(i) >= CPUS_PER_TASK) {
-            for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {   //以此根据要求取出一个task，这是个迭代器，不是for循环的思路
+            for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {   //以此根据要求取出task,如果当前offer有剩余core，就继续分配
               tasks(i) += task  //添加相应任务的描述符,task是任务描述符，tasks是每个workOffers对应的任务描述符数组，数组个数是core个数
               val tid = task.taskId
               taskIdToTaskSetId(tid) = taskSet.taskSet.id
@@ -280,9 +278,12 @@ private[spark] class TaskSchedulerImpl(
               executorsByHost(host) += execId
               availableCpus(i) -= CPUS_PER_TASK
               assert(availableCpus(i) >= 0)           //如果当前的Offers没法满足要求，则launchedTask为假，任务无法启动
+//              println("!!!!!!!!!!!!!!!!!MARVIN!!!!!!!!!!!!!!! " + execId )
               launchedTask = true
             }
+
           }
+//         println("!!!!!!!!!!!!!!!!!MARVIN!!!!!!!!!!!!!!! OUTIF"  )
         }
       } while (launchedTask)        //round-robin，一轮一轮的分配
     }

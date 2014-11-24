@@ -303,7 +303,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
       value: Any,
       size: Long,
       deserialized: Boolean): ResultWithDroppedBlocks = {
-    logInfo("***********************Marvin****************************  tryTo Put %s".format(blockId))
+    logInfo("******Marvin***********  tryTo Put %s".format(blockId))
 
     /* TODO: Its possible to optimize the locking by locking entries only when selecting blocks
      * to be dropped. Once the to-be-dropped blocks have been selected, and lock on entries has

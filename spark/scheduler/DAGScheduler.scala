@@ -154,6 +154,7 @@ class DAGScheduler(
   }
 
   // Called by TaskScheduler to report task completions or failures.
+  //TaskScheduler调用来报告task的完成情况
   def taskEnded(
       task: Task[_],
       reason: TaskEndReason,
@@ -1455,7 +1456,7 @@ private[scheduler] class DAGSchedulerEventProcessActor(dagScheduler: DAGSchedule
     case GettingResultEvent(taskInfo) =>
       dagScheduler.handleGetTaskResult(taskInfo)
 
-    case completion @ CompletionEvent(task, reason, _, _, taskInfo, taskMetrics) =>
+    case completion @ CompletionEvent(task, reason, _, _, taskInfo, taskMetrics) =>       //@表示匹配，所有匹配@后面的模式都被赋值给@之前的变量
       dagScheduler.handleTaskCompletion(completion)
 
     case TaskSetFailed(taskSet, reason) =>
