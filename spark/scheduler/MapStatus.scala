@@ -28,26 +28,20 @@ import org.apache.spark.storage.BlockManagerId
  * task ran on as well as the sizes of outputs for each reducer, for passing on to the reduce tasks.
  * The map output sizes are compressed using MapOutputTracker.compressSize.
  */
-private[spark] class MapStatus(var location: BlockManagerId, var compressedSizes: Array[Byte])
-  extends Externalizable {
+private[spark] class MapStatus(var location: BlockManagerId, var compressedSizes: Array[Byte])   //blockManagerId,包含execId，host等，
+  extends Externalizable {                                                     //有多个
 
   def this() = this(null, null)  // For deserialization only
 
-  //Marvin
-  def marvinPrintMapStatus: Unit ={
-    println("BlockManagerId is " + location)
-    compressedSizes.foreach(f=>println("size is + " + f))
-  }
-
-  def writeExternal(out: ObjectOutput) {
+    def writeExternal(out: ObjectOutput) {
     location.writeExternal(out)
     out.writeInt(compressedSizes.length)
     out.write(compressedSizes)
 
-    //marvin
+   /* //marvin
     println("BlockManagerId is " + location)
     compressedSizes.foreach(f=>println("size is " + f))
-    //-marvin
+    //-marvin*/
   }
 
   def readExternal(in: ObjectInput) {

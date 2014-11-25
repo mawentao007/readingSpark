@@ -1367,14 +1367,14 @@ class DAGScheduler(
     val rddPrefs = rdd.preferredLocations(rdd.partitions(partition)).toList
     if (!rddPrefs.isEmpty) {
  //     logInfo("*******************Marvin**********&&&&&" + rddPrefs.map(host => TaskLocation(host)))
-      return rddPrefs.map(host => TaskLocation(host))
+      return rddPrefs.map(host => TaskLocation(host))   //生成TaskLocation对象
     }
     // If the RDD has narrow dependencies, pick the first partition of the first narrow dep
     // that has any placement preferences. Ideally we would choose based on transfer sizes,
     // but this will do for now.
     //如果rdd有窄依赖，找到第一个partition的位置喜好，理论上讲应该依据传输数据大小。
     rdd.dependencies.foreach {
-      case n: NarrowDependency[_] =>
+      case n: NarrowDependency[_] =>            //如果是窄依赖，则将依赖的preloc添加
         for (inPart <- n.getParents(partition)) {
           val locs = getPreferredLocsInternal(n.rdd, inPart, visited)
           if (locs != Nil) {

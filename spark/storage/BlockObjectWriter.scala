@@ -30,6 +30,7 @@ import org.apache.spark.executor.ShuffleWriteMetrics
  * as it allows the caller to revert partial writes.
  *
  * This interface does not support concurrent writes.
+ * 一个接口，写jvm对象到某些底层存储系统，这个接口运行追加数据到已经存在的快，可以保证原子性，不支持并发写
  */
 private[spark] abstract class BlockObjectWriter(val blockId: BlockId) {
 
@@ -65,6 +66,7 @@ private[spark] abstract class BlockObjectWriter(val blockId: BlockId) {
 
 /**
  * BlockObjectWriter which writes directly to a file on disk. Appends to the given file.
+ * 直接写入磁盘，追加到已经存在的文件
  */
 private[spark] class DiskBlockObjectWriter(
     blockId: BlockId,
@@ -106,8 +108,11 @@ private[spark] class DiskBlockObjectWriter(
    *       initialPosition
    *
    * initialPosition: Offset in the file where we start writing. Immutable.
+   * 开始写的时候的文件偏移，不可变
    * reportedPosition: Position at the time of the last update to the write metrics.
+   * 上次更新时候写的位置
    * finalPosition: Offset where we stopped writing. Set on closeAndCommit() then never changed.
+   * 终止写时候的便宜
    * -----: Current writes to the underlying file.
    * xxxxx: Existing contents of the file.
    */

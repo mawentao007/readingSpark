@@ -65,7 +65,7 @@ private[spark] class HashShuffleWriter[K, V](
     }
 
     for (elem <- iter) {
-      val bucketId = dep.partitioner.getPartition(elem._1)
+      val bucketId = dep.partitioner.getPartition(elem._1)    //获得输出的partition的id
       shuffle.writers(bucketId).write(elem)            //向相应的partition里面写入元素
     }
   }

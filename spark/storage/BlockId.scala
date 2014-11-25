@@ -28,6 +28,8 @@ import org.apache.spark.annotation.DeveloperApi
  * set of keys which produce its unique name.
  *
  * If your BlockId should be serializable, be sure to add it to the BlockId.apply() method.
+ * 标志一个特别的数据块，通常和一个单独的文件关联。一个快可以通过文件名唯一区分，但是每种块有一个不同的key集合，产生唯一的名字。
+ * 如果块需要被序列化，那么要把它加到BlockId.apply方法中。
  */
 @DeveloperApi
 sealed abstract class BlockId {

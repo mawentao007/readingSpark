@@ -27,6 +27,7 @@ import org.apache.spark.rdd.RDD
 
 /**
  * A task that sends back the output to the driver application.
+ * 一个task，将输出结果发送到driver
  *
  * See [[Task]] for more information.
  *

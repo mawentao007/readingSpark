@@ -129,9 +129,9 @@ class ShuffleBlockManager(blockManager: BlockManager,
       val writers: Array[BlockObjectWriter] = if (consolidateShuffleFiles) {  //返回BlockObjectWriter队列
         fileGroup = getUnusedFileGroup()
         Array.tabulate[BlockObjectWriter](numBuckets) { bucketId =>              //tabulate，返回一个数组，numBuckets个，值是后面函数计算的
-          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)                //bucketId就是数组下标
+          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)                //bucketId就是partitionId，给一个整数，算出相应数据
           blockManager.getDiskWriter(blockId, fileGroup(bucketId), serializer, bufferSize,
-            writeMetrics)
+            writeMetrics)                    //对于每个bucket，都有一个writer，负责往里面写数据，还能计算出大小，就是mapstatus中的size之一
         }
       } else {
         Array.tabulate[BlockObjectWriter](numBuckets) { bucketId =>
@@ -256,6 +256,7 @@ object ShuffleBlockManager {
   /**
    * A group of shuffle files, one per reducer.
    * A particular mapper will be assigned a single ShuffleFileGroup to write its output to.
+   * 一组shuffle 文件，每个reducer一个
    */
   private class ShuffleFileGroup(val shuffleId: Int, val fileId: Int, val files: Array[File]) {
     private var numBlocks: Int = 0

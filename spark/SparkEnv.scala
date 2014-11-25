@@ -40,6 +40,8 @@ import org.apache.spark.util.{AkkaUtils, Utils}
 
 /**
  * :: DeveloperApi ::
+ * 保存所有运行时对象给所有的运行spark实例，包括master和worker的，有序列器，Akka，块管理器，map输出器。Spark code可以通过
+ * 线程本地变量访问这个SparkEnv。每个线程都都需要有正确的SparkEnv配置。
  * Holds all the runtime environment objects for a running Spark instance (either master or worker),
  * including the serializer, Akka actor system, block manager, map output tracker, etc. Currently
  * Spark code finds the SparkEnv through a thread-local variable, so each thread that accesses these
@@ -122,6 +124,7 @@ object SparkEnv extends Logging {
   /**
    * Returns the ThreadLocal SparkEnv, if non-null. Else returns the SparkEnv
    * previously set in any thread.
+   * 返回线程本地的sparkEnv，如果是空的，则返回之前设置的sparkenv
    */
   def get: SparkEnv = {
     Option(env.get()).getOrElse(lastSetSparkEnv)
@@ -228,7 +231,7 @@ object SparkEnv extends Logging {
       new BlockManagerMasterActor(isLocal, conf, listenerBus)), conf)
 
     val blockManager = new BlockManager(executorId, actorSystem, blockManagerMaster,
-      serializer, conf, securityManager, mapOutputTracker, shuffleManager)
+      serializer, conf, securityManager, mapOutputTracker, shuffleManager)   //创建blockManager，包括executorId等
 
     val connectionManager = blockManager.connectionManager
 
