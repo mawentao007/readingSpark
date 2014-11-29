@@ -1378,7 +1378,7 @@ class DAGScheduler(
         for (inPart <- n.getParents(partition)) {
           val locs = getPreferredLocsInternal(n.rdd, inPart, visited)
           if (locs != Nil) {
-            return locs
+            return locs                    //返回第一个dep的地址
           }
         }
       case _ =>
