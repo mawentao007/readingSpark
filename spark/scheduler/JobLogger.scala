@@ -19,16 +19,14 @@ package org.apache.spark.scheduler
 
 import java.io.{File, FileNotFoundException, IOException, PrintWriter}
 import java.text.SimpleDateFormat
-import java.util.{Date, Properties}
 import java.util.concurrent.LinkedBlockingQueue
-
-import scala.collection.mutable.HashMap
+import java.util.{Date, Properties}
 
 import org.apache.spark._
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.executor.{DataReadMethod, TaskMetrics}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.storage.StorageLevel
+import org.apache.spark.executor.TaskMetrics
+
+import scala.collection.mutable.HashMap
 
 /**
  * :: DeveloperApi ::
@@ -188,6 +186,7 @@ class JobLogger(val user: String, val logDirName: String) extends SparkListener 
 
   /**
    * When stage is submitted, record stage submit info
+   * 当一个stage被提交，记录stage消息
    * @param stageSubmitted Stage submitted event
    */
   override def onStageSubmitted(stageSubmitted: SparkListenerStageSubmitted) {

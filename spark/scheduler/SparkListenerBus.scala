@@ -25,11 +25,12 @@ import org.apache.spark.util.Utils
 
 /**
  * A SparkListenerEvent bus that relays events to its listeners
+ *
  */
 private[spark] trait SparkListenerBus extends Logging {
 
   // SparkListeners attached to this event bus
-  protected val sparkListeners = new ArrayBuffer[SparkListener]
+  protected val sparkListeners = new ArrayBuffer[SparkListener]   //队列中存储spark监听器
     with mutable.SynchronizedBuffer[SparkListener]
 
   def addListener(listener: SparkListener) {
@@ -39,6 +40,7 @@ private[spark] trait SparkListenerBus extends Logging {
   /**
    * Post an event to all attached listeners.
    * This does nothing if the event is SparkListenerShutdown.
+   * 把事件传递给监听器
    */
   def postToAll(event: SparkListenerEvent) {
     event match {
@@ -76,11 +78,12 @@ private[spark] trait SparkListenerBus extends Logging {
 
   /**
    * Apply the given function to all attached listeners, catching and logging any exception.
+   * 对所有监听器执行特定的函数操作
    */
   private def foreachListener(f: SparkListener => Unit): Unit = {
     sparkListeners.foreach { listener =>
       try {
-        f(listener)
+        f(listener)                          //自身的监听器作为参数，调用自身内部的方法，传递回去
       } catch {
         case e: Exception =>
           logError(s"Listener ${Utils.getFormattedClassName(listener)} threw an exception", e)

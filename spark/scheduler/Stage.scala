@@ -39,7 +39,7 @@ import org.apache.spark.util.CallSite
  * initiated a job (e.g. count(), save(), etc). For shuffle map stages, we also track the nodes
  * that each output partition is on.
  *
- * 每个stage都有jobId，就是第一高提交这个stage的job。当使用FIFO调度，jobs越早，stages被计算的越早，恢复越早
+ * 每个stage都有jobId，就是第一提交这个stage的job。当使用FIFO调度，jobs越早，stages被计算的越早，恢复越早
  * Each Stage also has a jobId, identifying the job that first submitted the stage.  When FIFO
  * scheduling is used, this allows Stages from earlier jobs to be computed first or recovered
  * faster on failure.

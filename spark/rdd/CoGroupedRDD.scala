@@ -62,7 +62,7 @@ private[spark] class CoGroupPartition(idx: Int, val deps: Array[CoGroupSplitDep]
  * Note: This is an internal API. We recommend users use RDD.coGroup(...) instead of
  * instantiating this directly.
 
- * @param rdds parent RDDs.
+ * @param rdds parent RDDs.  //父rdd
  * @param part partitioner used to partition the shuffle output
  */
 @DeveloperApi

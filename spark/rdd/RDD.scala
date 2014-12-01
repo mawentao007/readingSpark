@@ -206,7 +206,7 @@ abstract class RDD[T: ClassTag](
     checkpointRDD.map(_.partitions).getOrElse {          //checkpointRDD可能为none
       if (partitions_ == null) {
         partitions_ = getPartitions
-        logInfo("~~~~~~~~~~~~~~~~~~Marvin~~~~~~~~~~~~~~~~ partition.size is " + partitions_.size)
+//        logInfo("~~~~~~~~~~~~~~~~~~Marvin~~~~~~~~~~~~~~~~ partition.size is " + partitions_.size)
       }
       partitions_
     }

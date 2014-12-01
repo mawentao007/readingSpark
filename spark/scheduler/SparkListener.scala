@@ -103,13 +103,15 @@ private[spark] case object SparkListenerShutdown extends SparkListenerEvent
  * :: DeveloperApi ::
  * Interface for listening to events from the Spark scheduler. Note that this is an internal
  * interface which might change in different Spark releases.
+ * 监听接口，监听spark调度器的事件。这是一个内部接口
  */
 @DeveloperApi
 trait SparkListener {
   /**
    * Called when a stage completes successfully or fails, with information on the completed stage.
    */
-  def onStageCompleted(stageCompleted: SparkListenerStageCompleted) { }
+  def onStageCompleted(stageCompleted: SparkListenerStageCompleted) { }          //所有的方法都可以被子类重载，通过传入
+                                                                                  //相应的事件，子类可以让该函数执行不同的操作
 
   /**
    * Called when a stage is submitted

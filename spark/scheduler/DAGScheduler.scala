@@ -88,9 +88,9 @@ class DAGScheduler(
   private[scheduler] def numTotalJobs: Int = nextJobId.get()
   private val nextStageId = new AtomicInteger(0)
 
-  private[scheduler] val jobIdToStageIds = new HashMap[Int, HashSet[Int]]   //jobid到stage集合的映射
+  private[scheduler] val jobIdToStageIds = new HashMap[Int, HashSet[Int]]   //jobid到stage集合的映射，一个job对应多个stage
   private[scheduler] val stageIdToStage = new HashMap[Int, Stage]    //stageid到stage类的映射
-  private[scheduler] val shuffleToMapStage = new HashMap[Int, Stage]    //
+  private[scheduler] val shuffleToMapStage = new HashMap[Int, Stage]    //shuffleId到stage的映射
   private[scheduler] val jobIdToActiveJob = new HashMap[Int, ActiveJob]//job到活动job的映射
 
   // Stages we need to run whose parents aren't done
@@ -105,7 +105,7 @@ class DAGScheduler(
   private[scheduler] val activeJobs = new HashSet[ActiveJob]     //活动job的集合
 
   // Contains the locations that each RDD's partitions are cached on
-  private val cacheLocs = new HashMap[Int, Array[Seq[TaskLocation]]]
+  private val cacheLocs = new HashMap[Int, Array[Seq[TaskLocation]]]  //包含每个rdd的分区被缓存的位置，rdd到位置队列的映射
 
   // For tracking failed nodes, we use the MapOutputTracker's epoch number, which is sent with
   // every task. When we detect a node failing, we note the current epoch number and failed
@@ -254,7 +254,7 @@ class DAGScheduler(
     : Stage =
   {
  //   logInfo("***********************Marvin****************************  newStage")
-    val id = nextStageId.getAndIncrement()
+    val id = nextStageId.getAndIncrement()         //新stage，新id
     val stage =
       new Stage(id, rdd, numTasks, shuffleDep, getParentStages(rdd, jobId), jobId, callSite)         //创建新stage
 //    stage.printStageInfo()
@@ -284,7 +284,7 @@ class DAGScheduler(
       val serLocs = mapOutputTracker.getSerializedMapOutputStatuses(shuffleDep.shuffleId)      //找到序列化和反序列化的地址
       val locs = MapOutputTracker.deserializeMapStatuses(serLocs)
       for (i <- 0 until locs.size) {
-        stage.outputLocs(i) = Option(locs(i)).toList   // locs(i) will be null if missing       //设置stage输出的地址，相应的mapstatus的列表
+        stage.outputLocs(i) = Option(locs(i)).toList   // locs(i) will be null if missing       //stage的partition的位置列表
       }
       stage.numAvailableOutputs = locs.count(_ != null)       //返回stage可用的地址的个数，除去丢失的
     } else {
@@ -335,7 +335,7 @@ class DAGScheduler(
 //    logInfo("***********************Marvin****************************  registerShuffleDependencies")
     val parentsWithNoMapStage = getAncestorShuffleDependencies(shuffleDep.rdd)  //找到祖先需要处理的依赖
     while (!parentsWithNoMapStage.isEmpty) {                //无映射的祖先依赖集合非空
-      val currentShufDep = parentsWithNoMapStage.pop()             //取出祖先依赖进行处理
+      val currentShufDep = parentsWithNoMapStage.pop()             //取出祖先依赖进行处理，后进先出，因为后进入的dep是较早的
       val stage =                                 //创建新的stage或者找到以前的stage
         newOrUsedStage(
           currentShufDep.rdd, currentShufDep.rdd.partitions.size, currentShufDep, jobId,
@@ -391,7 +391,7 @@ class DAGScheduler(
     def visit(rdd: RDD[_]) {
       if (!visited(rdd)) {
         visited += rdd
-        if (getCacheLocs(rdd).contains(Nil)) {       //如果没有缓存这个rdd，表示这个rdd还没有计算完成？
+        if (getCacheLocs(rdd).contains(Nil)) {       //如果这个rdd的partition中有的partition还没有被缓存
           for (dep <- rdd.dependencies) {
             dep match {
               case shufDep: ShuffleDependency[_, _, _] =>
@@ -770,7 +770,7 @@ class DAGScheduler(
     }                                                                       //先创建stage，再执行job
     if (finalStage != null) {
       val job = new ActiveJob(jobId, finalStage, func, partitions, callSite, listener, properties)  //创建新的ActiveJob
-      clearCacheLocs()
+      clearCacheLocs()   //清除rdd包含的partition的缓存队列
       logInfo("Got job %s (%s) with %d output partitions (allowLocal=%s)".format(
         job.jobId, callSite.shortForm, partitions.length, allowLocal))
       logInfo("Final stage: " + finalStage + "(" + finalStage.name + ")")
@@ -847,7 +847,7 @@ class DAGScheduler(
     }
 //    logInfo("##############################Marvin################### partitionsToCompute" + partitionsToCompute)
 
-    val properties = if (jobIdToActiveJob.contains(jobId)) {            //如果当前的job是正在执行的
+    val properties = if (jobIdToActiveJob.contains(jobId)) {            //如果当前的job是activeJob,也就是说相应的job存在
       jobIdToActiveJob(stage.jobId).properties
     } else {
       // this stage will be assigned to "default" pool
@@ -876,7 +876,7 @@ class DAGScheduler(
         if (stage.isShuffleMap) {
           closureSerializer.serialize((stage.rdd, stage.shuffleDep.get) : AnyRef).array()  //序列化stage的rdd和依赖
         } else {
-          closureSerializer.serialize((stage.rdd, stage.resultOfJob.get.func) : AnyRef).array()  //序列化rdd和函数？？
+          closureSerializer.serialize((stage.rdd, stage.resultOfJob.get.func) : AnyRef).array()  //序列化rdd和函数,函数是job最终result函数
         }
       taskBinary = sc.broadcast(taskBinaryBytes)         //广播rdd和相关依赖的副本到集群
     } catch {
@@ -895,7 +895,8 @@ class DAGScheduler(
       partitionsToCompute.map { id =>
 //        stage.printStageInfo()
         val locs = getPreferredLocs(stage.rdd, id)    //比较倾向的输出位置
-        val part = stage.rdd.partitions(id)
+        val part = stage.rdd.partitions(id)          //这个partition的数据不存在，是要计算的数据，通过dep来写入这个partition
+        stage.printStageInfo()
         new ShuffleMapTask(stage.id, taskBinary, part, locs)
       }
     } else {

@@ -259,7 +259,9 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
     }
   }
 
-  /** Register multiple map output information for the given shuffle */
+  /** Register multiple map output information for the given shuffle
+    * 给某个特定的shuffle注册多个输出消息
+    * */
   def registerMapOutputs(shuffleId: Int, statuses: Array[MapStatus], changeEpoch: Boolean = false) {
     mapStatuses.put(shuffleId, Array[MapStatus]() ++ statuses)
     if (changeEpoch) {
@@ -267,7 +269,9 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
     }
   }
 
-  /** Unregister map output information of the given shuffle, mapper and block manager */
+  /** Unregister map output information of the given shuffle, mapper and block manager
+    * 给某个shuffle解除注册map输出消息
+    * */
   def unregisterMapOutput(shuffleId: Int, mapId: Int, bmAddress: BlockManagerId) {
     val arrayOpt = mapStatuses.get(shuffleId)
     if (arrayOpt.isDefined && arrayOpt.get != null) {
@@ -283,13 +287,17 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
     }
   }
 
-  /** Unregister shuffle data */
+  /** Unregister shuffle data
+    * 解除注册shuffle
+    * */
   override def unregisterShuffle(shuffleId: Int) {
     mapStatuses.remove(shuffleId)
     cachedSerializedStatuses.remove(shuffleId)
   }
 
-  /** Check if the given shuffle is being tracked */
+  /** Check if the given shuffle is being tracked
+    * 检查特定的shuffle是否被追踪
+    * */
   def containsShuffle(shuffleId: Int): Boolean = {
     cachedSerializedStatuses.contains(shuffleId) || mapStatuses.contains(shuffleId)
   }

@@ -24,6 +24,7 @@ import org.apache.spark.util.Utils
 
 /**
  * Asynchronously passes SparkListenerEvents to registered SparkListeners.
+ * 异步传递spark监听事件来注册spark监听器
  *
  * Until start() is called, all posted events are only buffered. Only after this listener bus
  * has started will events be actually propagated to all attached listeners. This listener bus
@@ -42,7 +43,7 @@ private[spark] class LiveListenerBus extends SparkListenerBus with Logging {
   // A counter that represents the number of events produced and consumed in the queue
   private val eventLock = new Semaphore(0)
 
-  private val listenerThread = new Thread("SparkListenerBus") {
+  private val listenerThread = new Thread("SparkListenerBus") {       //创建监听线程，设置为守护线程
     setDaemon(true)
     override def run(): Unit = Utils.logUncaughtExceptions {
       while (true) {
@@ -54,7 +55,7 @@ private[spark] class LiveListenerBus extends SparkListenerBus with Logging {
             // Get out of the while loop and shutdown the daemon thread
             return
           }
-          Option(event).foreach(postToAll)
+          Option(event).foreach(postToAll)    //发送事件进行处理
         }
       }
     }
@@ -78,7 +79,7 @@ private[spark] class LiveListenerBus extends SparkListenerBus with Logging {
   def post(event: SparkListenerEvent) {
     val eventAdded = eventQueue.offer(event)       //添加相应事件到队列末尾
     if (eventAdded) {
-      eventLock.release()
+      eventLock.release()       //先锁住队列，完成添加后解锁
     } else {
       logQueueFullErrorMessage()
     }

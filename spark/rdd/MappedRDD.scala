@@ -25,8 +25,8 @@ private[spark]
 class MappedRDD[U: ClassTag, T: ClassTag](prev: RDD[T], f: T => U)        //参数为rdd和func
   extends RDD[U](prev) {
 
-  override def getPartitions: Array[Partition] = firstParent[T].partitions
+  override def getPartitions: Array[Partition] = firstParent[T].partitions    //选择第一个依赖的partitions
 
   override def compute(split: Partition, context: TaskContext) =
-    firstParent[T].iterator(split, context).map(f)
+    firstParent[T].iterator(split, context).map(f)                    //先进入iterator，对父rdd进行计算
 }
