@@ -82,6 +82,7 @@ class TaskMetrics extends Serializable {
   /**
    * If this task reads from a HadoopRDD or from persisted data, metrics on how much data was read
    * are stored here.
+   * 如果这个task从hadooprdd读或者从固定数据读，读的数据大小被保存在这里
    */
   var inputMetrics: Option[InputMetrics] = None
 
@@ -115,6 +116,7 @@ class TaskMetrics extends Serializable {
 
   /**
    * Storage statuses of any blocks that have been updated as a result of this task.
+   * 存储任何blocks，被这个task执行后更新
    */
   var updatedBlocks: Option[Seq[(BlockId, BlockStatus)]] = None
 
@@ -123,6 +125,8 @@ class TaskMetrics extends Serializable {
    * issues from readers in different threads, in-progress tasks use a ShuffleReadMetrics for each
    * dependency, and merge these metrics before reporting them to the driver. This method returns
    * a ShuffleReadMetrics for a dependency and registers it for merging later.
+   *一个task可能有多个shuffle readers，对于多个依赖。为了避免不同线程之间同步问题，正在执行的task用一个ShuffleReaderMetrics来监控
+   * 每个dependency并且在报告到driver之前合并这些metrics
    */
   private [spark] def createShuffleReadMetricsForDependency(): ShuffleReadMetrics = synchronized {
     val readMetrics = new ShuffleReadMetrics()
@@ -216,6 +220,7 @@ class ShuffleReadMetrics extends Serializable {
 /**
  * :: DeveloperApi ::
  * Metrics pertaining to shuffle data written in a given task.
+ * 一个task写的shuffle数据大小
  */
 @DeveloperApi
 class ShuffleWriteMetrics extends Serializable {
@@ -226,6 +231,7 @@ class ShuffleWriteMetrics extends Serializable {
 
   /**
    * Time the task spent blocking on writes to disk or buffer cache, in nanoseconds
+   * task花在写disk或者buffle的阻塞时间
    */
   @volatile var shuffleWriteTime: Long = _
 }

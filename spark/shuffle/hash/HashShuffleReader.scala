@@ -29,7 +29,7 @@ private[spark] class HashShuffleReader[K, C](
     context: TaskContext)
   extends ShuffleReader[K, C]
 {
-  require(endPartition == startPartition + 1,
+  require(endPartition == startPartition + 1,      //目前只支持获取一个partition
     "Hash shuffle currently only supports fetching one partition")
 
   private val dep = handle.dependency

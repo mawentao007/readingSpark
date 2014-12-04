@@ -23,6 +23,7 @@ package org.apache.spark
 trait Partition extends Serializable {
   /**
    * Get the split's index within its parent RDD
+   * rdd中的分块索引
    */
   def index: Int
 

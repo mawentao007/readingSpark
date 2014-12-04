@@ -86,6 +86,7 @@ class ShuffleBlockManager(blockManager: BlockManager,
   /**
    * Contains all the state related to a particular shuffle. This includes a pool of unused
    * ShuffleFileGroups, as well as all ShuffleFileGroups that have been created for the shuffle.
+   * 包含一个shuffle相关的所有的状态。包括没有用的ShuffleFileGroups池，所有的ShuffleFileGroups，给这个shuffle创建的
    */
   private class ShuffleState(val numBuckets: Int) {
     val nextFileId = new AtomicInteger(0)
@@ -94,7 +95,9 @@ class ShuffleBlockManager(blockManager: BlockManager,
 
     /**
      * The mapIds of all map tasks completed on this Executor for this shuffle.
+     * 这个shuffle的所有的在当前的executor上已经完成的map tasks
      * NB: This is only populated if consolidateShuffleFiles is FALSE. We don't need it otherwise.
+     * 只有联合文件的标记为假的时候才有用
      */
     val completedMapTasks = new ConcurrentLinkedQueue[Int]()
   }
@@ -108,11 +111,12 @@ class ShuffleBlockManager(blockManager: BlockManager,
   /**
    * Register a completed map without getting a ShuffleWriterGroup. Used by sort-based shuffle
    * because it just writes a single file by itself.
+   * 注册一个完全的map不用获得wg，被sort-based shuffle 利用，因为他只写一个文件
    */
   def addCompletedMap(shuffleId: Int, mapId: Int, numBuckets: Int): Unit = {
-    shuffleStates.putIfAbsent(shuffleId, new ShuffleState(numBuckets))
+    shuffleStates.putIfAbsent(shuffleId, new ShuffleState(numBuckets))   //一个shuffleId，对应一组sst
     val shuffleState = shuffleStates(shuffleId)
-    shuffleState.completedMapTasks.add(mapId)
+    shuffleState.completedMapTasks.add(mapId)    //取出一个shuffleId对应的sst，将完成的mapId添加进去
   }
 
   /**
@@ -150,10 +154,10 @@ class ShuffleBlockManager(blockManager: BlockManager,
         }
       }
 
-      override def releaseWriters(success: Boolean) {
+      override def releaseWriters(success: Boolean) {        //释放writer
         if (consolidateShuffleFiles) {
           if (success) {
-            val offsets = writers.map(_.fileSegment().offset)
+            val offsets = writers.map(_.fileSegment().offset)    //返回一组偏移
             val lengths = writers.map(_.fileSegment().length)
             fileGroup.recordMapOutput(mapId, offsets, lengths)
           }
@@ -264,12 +268,14 @@ object ShuffleBlockManager {
     /**
      * Stores the absolute index of each mapId in the files of this group. For instance,
      * if mapId 5 is the first block in each file, mapIdToIndex(5) = 0.
+     * 记录一个group中的每个mapId的绝对索引
      */
     private val mapIdToIndex = new PrimitiveKeyOpenHashMap[Int, Int]()
 
     /**
      * Stores consecutive offsets and lengths of blocks into each reducer file, ordered by
      * position in the file.
+     * 保存块到每个reducer的连续的偏移量和长度，根据文件的位置
      * Note: mapIdToIndex(mapId) returns the index of the mapper into the vector for every
      * reducer.
      */
@@ -282,9 +288,9 @@ object ShuffleBlockManager {
 
     def apply(bucketId: Int) = files(bucketId)
 
-    def recordMapOutput(mapId: Int, offsets: Array[Long], lengths: Array[Long]) {
+    def recordMapOutput(mapId: Int, offsets: Array[Long], lengths: Array[Long]) {    //记录map的输出
       assert(offsets.length == lengths.length)
-      mapIdToIndex(mapId) = numBlocks
+      mapIdToIndex(mapId) = numBlocks        //为何对应的是块数
       numBlocks += 1
       for (i <- 0 until offsets.length) {
         blockOffsetsByReducer(i) += offsets(i)
@@ -292,7 +298,9 @@ object ShuffleBlockManager {
       }
     }
 
-    /** Returns the FileSegment associated with the given map task, or None if no entry exists. */
+    /** Returns the FileSegment associated with the given map task, or None if no entry exists.
+      * 返回和给定map task关联的文件段
+      * */
     def getFileSegmentFor(mapId: Int, reducerId: Int): Option[FileSegment] = {
       val file = files(reducerId)
       val blockOffsets = blockOffsetsByReducer(reducerId)

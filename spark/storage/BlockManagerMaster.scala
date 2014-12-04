@@ -35,13 +35,17 @@ class BlockManagerMaster(var driverActor: ActorRef, conf: SparkConf) extends Log
 
   val timeout = AkkaUtils.askTimeout(conf)
 
-  /** Remove a dead executor from the driver actor. This is only called on the driver side. */
+  /** Remove a dead executor from the driver actor. This is only called on the driver side.
+    * 从driver actor中移除死掉的executor，只被driver端调用。
+    * */
   def removeExecutor(execId: String) {
     tell(RemoveExecutor(execId))
     logInfo("Removed " + execId + " successfully in removeExecutor")
   }
 
-  /** Register the BlockManager's id with the driver. */
+  /** Register the BlockManager's id with the driver.
+    * 注册BlockManager的id到driver
+    * */
   def registerBlockManager(blockManagerId: BlockManagerId, maxMemSize: Long, slaveActor: ActorRef) {
     logInfo("Trying to register BlockManager")
     tell(RegisterBlockManager(blockManagerId, maxMemSize, slaveActor))
@@ -61,12 +65,16 @@ class BlockManagerMaster(var driverActor: ActorRef, conf: SparkConf) extends Log
     res
   }
 
-  /** Get locations of the blockId from the driver */
+  /** Get locations of the blockId from the driver
+    * 从driver获得block的位置
+    * */
   def getLocations(blockId: BlockId): Seq[BlockManagerId] = {
     askDriverWithReply[Seq[BlockManagerId]](GetLocations(blockId))
   }
 
-  /** Get locations of multiple blockIds from the driver */
+  /** Get locations of multiple blockIds from the driver
+    * 从driver端获得多个块位置
+    * */
   def getLocations(blockIds: Array[BlockId]): Seq[Seq[BlockManagerId]] = {
     askDriverWithReply[Seq[Seq[BlockManagerId]]](GetLocationsMultipleBlockIds(blockIds))
   }
@@ -74,12 +82,15 @@ class BlockManagerMaster(var driverActor: ActorRef, conf: SparkConf) extends Log
   /**
    * Check if block manager master has a block. Note that this can be used to check for only
    * those blocks that are reported to block manager master.
+   * 检查是否bmm有一个1个块这可以用来检查被报告给bmm的块
    */
   def contains(blockId: BlockId) = {
     !getLocations(blockId).isEmpty
   }
 
-  /** Get ids of other nodes in the cluster from the driver */
+  /** Get ids of other nodes in the cluster from the driver
+    * 从driver端获得另一个node的id，返回块管理器id列表
+    * */
   def getPeers(blockManagerId: BlockManagerId, numPeers: Int): Seq[BlockManagerId] = {
     val result = askDriverWithReply[Seq[BlockManagerId]](GetPeers(blockManagerId, numPeers))
     if (result.length != numPeers) {
@@ -92,12 +103,15 @@ class BlockManagerMaster(var driverActor: ActorRef, conf: SparkConf) extends Log
   /**
    * Remove a block from the slaves that have it. This can only be used to remove
    * blocks that the driver knows about.
+   * 从拥有一个块的slave上移除一个块
    */
   def removeBlock(blockId: BlockId) {
     askDriverWithReply(RemoveBlock(blockId))
   }
 
-  /** Remove all blocks belonging to the given RDD. */
+  /** Remove all blocks belonging to the given RDD.
+    * 移除一个rdd所拥有的所有块
+    * */
   def removeRdd(rddId: Int, blocking: Boolean) {
     val future = askDriverWithReply[Future[Seq[Int]]](RemoveRdd(rddId))
     future.onFailure {
@@ -109,7 +123,9 @@ class BlockManagerMaster(var driverActor: ActorRef, conf: SparkConf) extends Log
     }
   }
 
-  /** Remove all blocks belonging to the given shuffle. */
+  /** Remove all blocks belonging to the given shuffle.
+    * 移除一个shuffle所拥有的所有块
+    * */
   def removeShuffle(shuffleId: Int, blocking: Boolean) {
     val future = askDriverWithReply[Future[Seq[Boolean]]](RemoveShuffle(shuffleId))
     future.onFailure {
@@ -121,7 +137,9 @@ class BlockManagerMaster(var driverActor: ActorRef, conf: SparkConf) extends Log
     }
   }
 
-  /** Remove all blocks belonging to the given broadcast. */
+  /** Remove all blocks belonging to the given broadcast.
+    * 移除一个broadcast所有的所有块
+    * */
   def removeBroadcast(broadcastId: Long, removeFromMaster: Boolean, blocking: Boolean) {
     val future = askDriverWithReply[Future[Seq[Int]]](
       RemoveBroadcast(broadcastId, removeFromMaster))
@@ -140,6 +158,7 @@ class BlockManagerMaster(var driverActor: ActorRef, conf: SparkConf) extends Log
    * the block manager's id to two long values. The first value is the maximum
    * amount of memory allocated for the block manager, while the second is the
    * amount of remaining memory.
+   * 返回每个bn的内存状态，以一个映射的形式，从一个bm id 映射到两个值。地一个是这个bm分配到的最大的内存，第二个是剩余内存
    */
   def getMemoryStatus: Map[BlockManagerId, (Long, Long)] = {
     askDriverWithReply[Map[BlockManagerId, (Long, Long)]](GetMemoryStatus)
@@ -152,6 +171,7 @@ class BlockManagerMaster(var driverActor: ActorRef, conf: SparkConf) extends Log
   /**
    * Return the block's status on all block managers, if any. NOTE: This is a
    * potentially expensive operation and should only be used for testing.
+   * 返回所有bm上面的所有块的状态
    *
    * If askSlaves is true, this invokes the master to query each block manager for the most
    * updated block statuses. This is useful when the master is not informed of the given block

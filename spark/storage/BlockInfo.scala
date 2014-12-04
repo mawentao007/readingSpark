@@ -31,13 +31,16 @@ private[storage] class BlockInfo(val level: StorageLevel, val tellMaster: Boolea
   private def setInitThread() {
     /* Set current thread as init thread - waitForReady will not block this thread
      * (in case there is non trivial initialization which ends up calling waitForReady
-     * as part of initialization itself) */
+     * as part of initialization itself)
+     * 设置当前线程为初始线程
+     * */
     BlockInfo.blockInfoInitThreads.put(this, Thread.currentThread())
   }
 
   /**
    * Wait for this BlockInfo to be marked as ready (i.e. block is finished writing).
    * Return true if the block is available, false otherwise.
+   * 等待当前BlockInfo被标记为完成，如果可用则返回true
    */
   def waitForReady(): Boolean = {
     if (pending && initThread != Thread.currentThread()) {
@@ -50,7 +53,9 @@ private[storage] class BlockInfo(val level: StorageLevel, val tellMaster: Boolea
     !failed
   }
 
-  /** Mark this BlockInfo as ready (i.e. block is finished writing) */
+  /** Mark this BlockInfo as ready (i.e. block is finished writing)
+    * 标记当前块为完成
+    * */
   def markReady(sizeInBytes: Long) {
     require(sizeInBytes >= 0, s"sizeInBytes was negative: $sizeInBytes")
     assert(pending)
@@ -61,7 +66,9 @@ private[storage] class BlockInfo(val level: StorageLevel, val tellMaster: Boolea
     }
   }
 
-  /** Mark this BlockInfo as ready but failed */
+  /** Mark this BlockInfo as ready but failed
+    * 标记当前块为失效
+    * */
   def markFailure() {
     assert(pending)
     size = BlockInfo.BLOCK_FAILED

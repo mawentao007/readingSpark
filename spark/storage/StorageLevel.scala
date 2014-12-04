@@ -23,6 +23,7 @@ import org.apache.spark.annotation.DeveloperApi
 
 /**
  * :: DeveloperApi ::
+ * 控制rdd存储的标志。每个存储级别记录是否使用内存，或者tachyon，是否放入disk，是否在内存中以序列化的格式保存数据，是否将rdd的partition复制到多个结点
  * Flags for controlling the storage of an RDD. Each StorageLevel records whether to use memory,
  * or Tachyon, whether to drop the RDD to disk if it falls out of memory or Tachyon , whether to
  * keep the data in memory in a serialized format, and whether to replicate the RDD partitions on

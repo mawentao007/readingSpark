@@ -393,10 +393,11 @@ abstract class RDD[T: ClassTag](
 
   /**
    * Return a fixed-size sampled subset of this RDD in an array
+   * 以队列形式返回一个固定大小的rdd的子集
    *
-   * @param withReplacement whether sampling is done with replacement
-   * @param num size of the returned sample
-   * @param seed seed for the random number generator
+   * @param withReplacement whether sampling is done with replacement   sampling是不是通过替换得来的
+   * @param num size of the returned sample   返回的sample大小
+   * @param seed seed for the random number generator    种子
    * @return sample of specified size in an array
    */
   def takeSample(withReplacement: Boolean,

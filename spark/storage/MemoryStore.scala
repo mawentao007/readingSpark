@@ -31,25 +31,29 @@ private case class MemoryEntry(value: Any, size: Long, deserialized: Boolean)
 /**
  * Stores blocks in memory, either as Arrays of deserialized Java objects or as
  * serialized ByteBuffers.
+ * 将块存储到内存，作为一个去序列化的java对象或者作为一个序列化的字节缓冲区
  */
 private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
   extends BlockStore(blockManager) {
 
   private val conf = blockManager.conf
-  private val entries = new LinkedHashMap[BlockId, MemoryEntry](32, 0.75f, true)
+  private val entries = new LinkedHashMap[BlockId, MemoryEntry](32, 0.75f, true)     //初始容积，存储系数
 
   @volatile private var currentMemory = 0L
 
   // Ensure only one thread is putting, and if necessary, dropping blocks at any given time
+  //保证只有一个thread被放入，如果需要，在任何时间丢弃块
   private val accountingLock = new Object
 
   // A mapping from thread ID to amount of memory used for unrolling a block (in bytes)
   // All accesses of this map are assumed to have manually synchronized on `accountingLock`
+  //一个从线程id到展开block所需内存的映射，所有访问这个map的都要有accountingLock
   private val unrollMemoryMap = mutable.HashMap[Long, Long]()
 
   /**
    * The amount of space ensured for unrolling values in memory, shared across all cores.
    * This space is not reserved in advance, but allocated dynamically by dropping existing blocks.
+   * 展开值到内存所需空间，所有核共享。这个空间没有提前预留，而是通过丢弃当前块来动态分配。
    */
   private val maxUnrollMemory: Long = {
     val unrollFraction = conf.getDouble("spark.storage.unrollFraction", 0.2)
@@ -58,7 +62,9 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 
   logInfo("MemoryStore started with capacity %s".format(Utils.bytesToString(maxMemory)))
 
-  /** Free memory not occupied by existing blocks. Note that this does not include unroll memory. */
+  /** Free memory not occupied by existing blocks. Note that this does not include unroll memory.
+    * 空闲内存
+    * */
   def freeMemory: Long = maxMemory - currentMemory
 
   override def getSize(blockId: BlockId): Long = {
@@ -105,8 +111,9 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
   }
 
   /**
+   * 尝试将一个块放入内存
    * Attempt to put the given block in memory store.
-   *
+   *内存中空间不足，可以选择将其放到disk
    * There may not be enough space to fully unroll the iterator in memory, in which case we
    * optionally drop the values to disk if
    *   (1) the block's storage level specifies useDisk, and
@@ -194,12 +201,14 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 
   /**
    * Unroll the given block in memory safely.
+   * memory safely的方式展开块
    *
    * The safety of this operation refers to avoiding potential OOM exceptions caused by
    * unrolling the entirety of the block in memory at once. This is achieved by periodically
    * checking whether the memory restrictions for unrolling blocks are still satisfied,
    * stopping immediately if not. This check is a safeguard against the scenario in which
    * there is not enough free memory to accommodate the entirety of a single block.
+   * 避免出现内存溢出。通过间歇检查内存约束是否满足，如果不满足立刻停止。
    *
    * This method returns either an array with the contents of the entire block or an iterator
    * containing the values of the block (if the array would have exceeded available memory).
@@ -208,18 +217,18 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
       blockId: BlockId,
       values: Iterator[Any],
       droppedBlocks: ArrayBuffer[(BlockId, BlockStatus)])
-    : Either[Array[Any], Iterator[Any]] = {
+    : Either[Array[Any], Iterator[Any]] = {                     //！！
 
-    // Number of elements unrolled so far
+    // Number of elements unrolled so far    //已经展开的元素个数
     var elementsUnrolled = 0
-    // Whether there is still enough memory for us to continue unrolling this block
+    // Whether there is still enough memory for us to continue unrolling this block    //剩余内存是否充足
     var keepUnrolling = true
     // Initial per-thread memory to request for unrolling blocks (bytes). Exposed for testing.
     val initialMemoryThreshold = conf.getLong("spark.storage.unrollMemoryThreshold", 1024 * 1024)
     // How often to check whether we need to request more memory
     val memoryCheckPeriod = 16
     // Memory currently reserved by this thread for this particular unrolling operation
-    var memoryThreshold = initialMemoryThreshold
+    var memoryThreshold = initialMemoryThreshold         //当前线程有的内存
     // Memory to request as a multiple of current vector size
     val memoryGrowthFactor = 1.5
     // Previous unroll memory held by this thread, for releasing later (only at the very end)
@@ -228,7 +237,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
     var vector = new SizeTrackingVector[Any]
 
     // Request enough memory to begin unrolling
-    keepUnrolling = reserveUnrollMemoryForThisThread(initialMemoryThreshold)
+    keepUnrolling = reserveUnrollMemoryForThisThread(initialMemoryThreshold)    //请求足够的内存来展开
 
     // Unroll this block safely, checking whether we have exceeded our threshold periodically
     try {
@@ -236,19 +245,19 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
         vector += values.next()
         if (elementsUnrolled % memoryCheckPeriod == 0) {
           // If our vector's size has exceeded the threshold, request more memory
-          val currentSize = vector.estimateSize()
-          if (currentSize >= memoryThreshold) {
+          val currentSize = vector.estimateSize()    //当前要用的大小
+          if (currentSize >= memoryThreshold) {         //超过当前大小，申请更多
             val amountToRequest = (currentSize * memoryGrowthFactor - memoryThreshold).toLong
             // Hold the accounting lock, in case another thread concurrently puts a block that
             // takes up the unrolling space we just ensured here
-            accountingLock.synchronized {
-              if (!reserveUnrollMemoryForThisThread(amountToRequest)) {
+            accountingLock.synchronized {        //必须同步一下，防止大家一起分配
+              if (!reserveUnrollMemoryForThisThread(amountToRequest)) {    //剩余空间不足
                 // If the first request is not granted, try again after ensuring free space
                 // If there is still not enough space, give up and drop the partition
                 val spaceToEnsure = maxUnrollMemory - currentUnrollMemory
                 if (spaceToEnsure > 0) {
                   val result = ensureFreeSpace(blockId, spaceToEnsure)
-                  droppedBlocks ++= result.droppedBlocks
+                  droppedBlocks ++= result.droppedBlocks           //要换出的块
                 }
                 keepUnrolling = reserveUnrollMemoryForThisThread(amountToRequest)
               }
@@ -303,7 +312,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
       value: Any,
       size: Long,
       deserialized: Boolean): ResultWithDroppedBlocks = {
-    logInfo("******Marvin***********  tryTo Put %s".format(blockId))
+//    logInfo("******Marvin***********  tryTo Put %s".format(blockId))
 
     /* TODO: Its possible to optimize the locking by locking entries only when selecting blocks
      * to be dropped. Once the to-be-dropped blocks have been selected, and lock on entries has
@@ -354,6 +363,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
    * blocks. Otherwise, the freed space may fill up before the caller puts in their new value.
    *
    * Return whether there is enough free space, along with the blocks dropped in the process.
+   * 尝试释放一部分空间来存储一个特殊的块，但是如果块比内存大或者它需要替换出同一个rdd中的另一个块就会失败（因为这会导致循环替换）
    */
   private def ensureFreeSpace(
       blockIdToAdd: BlockId,
@@ -424,13 +434,14 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
   /**
    * Reserve additional memory for unrolling blocks used by this thread.
    * Return whether the request is granted.
+   * 保留额外的内存来给这个线程做展开用，返回是否成功
    */
   private[spark] def reserveUnrollMemoryForThisThread(memory: Long): Boolean = {
     accountingLock.synchronized {
-      val granted = freeMemory > currentUnrollMemory + memory
+      val granted = freeMemory > currentUnrollMemory + memory     //已经用的内存+要用的是否超过空闲内存，这里的空闲内存应该是指只用来做展开
       if (granted) {
         val threadId = Thread.currentThread().getId
-        unrollMemoryMap(threadId) = unrollMemoryMap.getOrElse(threadId, 0L) + memory
+        unrollMemoryMap(threadId) = unrollMemoryMap.getOrElse(threadId, 0L) + memory   //添加到线程占用的内存表
       }
       granted
     }
@@ -457,6 +468,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 
   /**
    * Return the amount of memory currently occupied for unrolling blocks across all threads.
+   * 当前所有的线程占用的内存，用作展开之用的
    */
   private[spark] def currentUnrollMemory: Long = accountingLock.synchronized {
     unrollMemoryMap.values.sum
@@ -471,5 +483,5 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 }
 
 private[spark] case class ResultWithDroppedBlocks(
-    success: Boolean,
-    droppedBlocks: Seq[(BlockId, BlockStatus)])
+    success: Boolean,                     //是否成功
+    droppedBlocks: Seq[(BlockId, BlockStatus)])       //要换出的块

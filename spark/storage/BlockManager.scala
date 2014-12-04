@@ -150,6 +150,7 @@ private[spark] class BlockManager(
 
   /**
    * Construct a BlockManager with a memory limit set based on system properties.
+   * 根据系统memory限制构建一个bm
    */
   def this(
       execId: String,
@@ -167,6 +168,7 @@ private[spark] class BlockManager(
   /**
    * Initialize the BlockManager. Register to the BlockManagerMaster, and start the
    * BlockManagerWorker actor.
+   * 初始化这个bm，注册到bmmaster，开始actor
    */
   private def initialize(): Unit = {
     master.registerBlockManager(blockManagerId, maxMemory, slaveActor)
@@ -177,7 +179,7 @@ private[spark] class BlockManager(
    * Report all blocks to the BlockManager again. This may be necessary if we are dropped
    * by the BlockManager and come back or if we become capable of recovering blocks on disk after
    * an executor crash.
-   *
+   * 把所有的block汇报给bm。如果块被bm丢弃但是现在要找回，或者可以在executor失败之后恢复块
    * This function deliberately fails silently if the master returns false (indicating that
    * the slave needs to re-register). The error condition will be detected again by the next
    * heart beat attempt or new block registration and another try to re-register all blocks
@@ -198,6 +200,7 @@ private[spark] class BlockManager(
    * Re-register with the master and report all blocks to it. This will be called by the heart beat
    * thread if our heartbeat to the block manager indicates that we were not registered.
    *
+   * 重新向master注册并且报告所有的block给它。这将会被心跳线程调用，如果向blockmanager的心跳检测发现我们没被注册
    * Note that this method must be called without any BlockInfo locks held.
    */
   def reregister(): Unit = {
@@ -233,7 +236,7 @@ private[spark] class BlockManager(
     }
   }
 
-  override def getBlockData(blockId: String): Either[FileSegment, ByteBuffer] = {
+  override def getBlockData(blockId: String): Either[FileSegment, ByteBuffer] = {     //Either，Left，Right是类型，可以让函数返回多种类型
     val bid = BlockId(blockId)
     if (bid.isShuffle) {
       Left(diskBlockManager.getBlockLocation(bid))
@@ -250,6 +253,7 @@ private[spark] class BlockManager(
   /**
    * Get the BlockStatus for the block identified by the given ID, if it exists.
    * NOTE: This is mainly for testing, and it doesn't fetch information from Tachyon.
+   * 返回块状态
    */
   def getStatus(blockId: BlockId): Option[BlockStatus] = {
     blockInfo.get(blockId).map { info =>
@@ -274,6 +278,7 @@ private[spark] class BlockManager(
    * message reflecting the current status, *not* the desired storage level in its block info.
    * For example, a block with MEMORY_AND_DISK set might have fallen out to be only on disk.
    *
+   * 告知master当前一个块的存储状况。浙江和发送一个块更新消息来反射当前状态，不是storage level。
    * droppedMemorySize exists to account for when the block is dropped from memory to disk (so
    * it is still valid). This ensures that update in master will compensate for the increase in
    * memory on slave.
@@ -296,6 +301,7 @@ private[spark] class BlockManager(
    * Actually send a UpdateBlockInfo message. Returns the master's response,
    * which will be true if the block was successfully recorded and false if
    * the slave needs to re-register.
+   * 发送UpdateBlockInfo消息。返回master的反馈。块被成功记录的时候返回true，slave需要重新注册的时候返回false。
    */
   private def tryToReportBlockStatus(
       blockId: BlockId,
@@ -318,6 +324,7 @@ private[spark] class BlockManager(
    * Return the updated storage status of the block with the given ID. More specifically, if
    * the block is dropped from memory and possibly added to disk, return the new storage level
    * and the updated in-memory and on-disk sizes.
+   * 返回当前块状态。如果快是从memory抛出，添加到磁盘的，返回新的storage level并且更新在内存和磁盘的数据大小
    */
   private def getCurrentBlockStatus(blockId: BlockId, info: BlockInfo): BlockStatus = {
     info.synchronized {
@@ -341,6 +348,7 @@ private[spark] class BlockManager(
 
   /**
    * Get locations of an array of blocks.
+   * 返回一个队列的块的位置，位置用BlockManagerId表示
    */
   private def getLocationBlockIds(blockIds: Array[BlockId]): Array[Seq[BlockManagerId]] = {
     val startTimeMs = System.currentTimeMillis
@@ -353,6 +361,7 @@ private[spark] class BlockManager(
    * A short-circuited method to get blocks directly from disk. This is used for getting
    * shuffle blocks. It is safe to do so without a lock on block info since disk store
    * never deletes (recent) items.
+   * 一个捷径方法，直接从磁盘获取块。这个方法用来获取shuffle blocks。这么做不用锁是安全的因为磁盘存储从来不会删除最近的items。
    */
   def getLocalFromDisk(blockId: BlockId, serializer: Serializer): Option[Iterator[Any]] = {
     diskStore.getValues(blockId, serializer).orElse {
@@ -362,6 +371,7 @@ private[spark] class BlockManager(
 
   /**
    * Get block from local block manager.
+   * 从本地块管理器获取块
    */
   def getLocal(blockId: BlockId): Option[BlockResult] = {
     logDebug(s"Getting local block $blockId")
@@ -370,6 +380,7 @@ private[spark] class BlockManager(
 
   /**
    * Get block from the local block manager as serialized bytes.
+   * 从本地块管理器以序列化字节方式获取块
    */
   def getLocalBytes(blockId: BlockId): Option[ByteBuffer] = {
     logDebug(s"Getting local block $blockId as bytes")
@@ -567,6 +578,7 @@ private[spark] class BlockManager(
    * an Iterator of (block ID, value) pairs so that clients may handle blocks in a pipelined
    * fashion as they're received. Expects a size in bytes to be provided for each block fetched,
    * so that we can control the maxMegabytesInFlight for the fetch.
+   * 利用BlockManagerIds从本地和远端bm获取多个块，返回（block Id，value）对的迭代器。
    */
   def getMultiple(
       blocksByAddress: Seq[(BlockManagerId, Seq[(BlockId, Long)])],
@@ -615,6 +627,7 @@ private[spark] class BlockManager(
   /**
    * Put a new block of values to the block manager.
    * Return a list of blocks updated as a result of this put.
+   * 将一个新块的值放入bm，返回一个更新后的块列表作为这次存放的结果
    */
   def putArray(
       blockId: BlockId,
@@ -629,6 +642,7 @@ private[spark] class BlockManager(
   /**
    * Put a new block of serialized bytes to the block manager.
    * Return a list of blocks updated as a result of this put.
+   * 将一块新的序列化的字节放入bm，返回一个更新后的块列表
    */
   def putBytes(
       blockId: BlockId,
@@ -643,6 +657,7 @@ private[spark] class BlockManager(
   /**
    * Put the given block according to the given level in one of the block stores, replicating
    * the values if necessary.
+   * 将给定块根据level放入块存储器，如果需要的话进行复制
    *
    * The effective storage level refers to the level according to which the block will actually be
    * handled. This allows the caller to specify an alternate behavior of doPut while preserving
@@ -850,6 +865,7 @@ private[spark] class BlockManager(
 
   /**
    * Read a block consisting of a single object.
+   * 读一个只包含一个对象的块
    */
   def getSingle(blockId: BlockId): Option[Any] = {
     get(blockId).map(_.data.next())
@@ -857,6 +873,7 @@ private[spark] class BlockManager(
 
   /**
    * Write a block consisting of a single object.
+   * 写一个只包含一个对象的块
    */
   def putSingle(
       blockId: BlockId,
@@ -869,6 +886,7 @@ private[spark] class BlockManager(
   /**
    * Drop a block from memory, possibly putting it on disk if applicable. Called when the memory
    * store reaches its limit and needs to free up space.
+   * 将一个块从内存移出去，可以的话放到disk。当内存到达极限的时候调用。
    *
    * Return the block status if the given block has been updated, else None.
    */

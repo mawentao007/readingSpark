@@ -895,8 +895,8 @@ class DAGScheduler(
       partitionsToCompute.map { id =>
 //        stage.printStageInfo()
         val locs = getPreferredLocs(stage.rdd, id)    //比较倾向的输出位置
-        val part = stage.rdd.partitions(id)          //这个partition的数据不存在，是要计算的数据，通过dep来写入这个partition
-        stage.printStageInfo()
+        val part = stage.rdd.partitions(id)          //这个partition数据已经有了，要的是计算，进行shuffle，将结果输出给下一层
+    //    stage.printStageInfo()
         new ShuffleMapTask(stage.id, taskBinary, part, locs)
       }
     } else {

@@ -26,13 +26,16 @@ import org.apache.spark.storage._
 /**
  * Spark class responsible for passing RDDs partition contents to the BlockManager and making
  * sure a node doesn't load two copies of an RDD at once.
+ * spark类，负责传递RDD partition内容给blockManager，保证node不会载入同样的rdd副本两次。
  */
 private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
 
   /** Keys of RDD partitions that are being computed/loaded. */
-  private val loading = new mutable.HashSet[RDDBlockId]
+  private val loading = new mutable.HashSet[RDDBlockId]           //Rdd partitions的键值，正在计算或者载入
 
-  /** Gets or computes an RDD partition. Used by RDD.iterator() when an RDD is cached. */
+  /** Gets or computes an RDD partition. Used by RDD.iterator() when an RDD is cached.
+    * get或者计算一个rdd partition，由rdd.iterator方法调用，当rdd被cached
+    * */
   def getOrCompute[T](
       rdd: RDD[T],
       partition: Partition,
@@ -43,19 +46,21 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
     logDebug(s"Looking for partition $key")
     blockManager.get(key) match {
       case Some(blockResult) =>
-        // Partition is already materialized, so just return its values
+        // Partition is already materialized, so just return its values   partition已经计算出来了，只需要返回结果即可
         context.taskMetrics.inputMetrics = Some(blockResult.inputMetrics)
         new InterruptibleIterator(context, blockResult.data.asInstanceOf[Iterator[T]])
 
       case None =>
         // Acquire a lock for loading this partition
         // If another thread already holds the lock, wait for it to finish return its results
+        //获得锁来载入这个partition，如果另一个线程已经获得了这个锁，等待它完成并获得结果
         val storedValues = acquireLockForPartition[T](key)
         if (storedValues.isDefined) {
           return new InterruptibleIterator[T](context, storedValues.get)
         }
 
         // Otherwise, we have to load the partition ourselves
+        //我们必须自己载入这个partition
         try {
           logInfo(s"Partition $key not found, computing it")
           val computedValues = rdd.computeOrReadCheckpoint(partition, context)
@@ -66,6 +71,7 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
           }
 
           // Otherwise, cache the values and keep track of any updates in block statuses
+          //缓存值，跟踪block状态的更新
           val updatedBlocks = new ArrayBuffer[(BlockId, BlockStatus)]
           val cachedValues = putInBlockManager(key, computedValues, storageLevel, updatedBlocks)
           val metrics = context.taskMetrics
@@ -127,6 +133,7 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
    * behavior, not the level originally specified by the user. This is mainly for forcing a
    * MEMORY_AND_DISK partition to disk if there is not enough room to unroll the partition,
    * while preserving the the original semantics of the RDD as specified by the application.
+   * 缓存一个partition的之，跟踪任何存储状态的更新，其它块也一起。
    */
   private def putInBlockManager[T](
       key: BlockId,
@@ -140,6 +147,7 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
       /*
        * This RDD is not to be cached in memory, so we can just pass the computed values as an
        * iterator directly to the BlockManager rather than first fully unrolling it in memory.
+       * RDD不是被缓存在内存，因此我们可以将计算好的之作为一个iterator直接放到块管理器，而不是完全放到内存
        */
       updatedBlocks ++=
         blockManager.putIterator(key, values, level, tellMaster = true, effectiveStorageLevel)
@@ -159,6 +167,8 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
        * Otherwise, we may cause an OOM exception if the JVM does not have enough space for this
        * single partition. Instead, we unroll the values cautiously, potentially aborting and
        * dropping the partition to disk if applicable.
+       * RDD被缓存在内存中。我们不能将计算好的值作为iterator放到块管理器。因为我们可能要从内存管理器丢弃一个块，在取回之前
+       *
        */
       blockManager.memoryStore.unrollSafely(key, values, updatedBlocks) match {
         case Left(arr) =>

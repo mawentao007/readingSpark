@@ -68,7 +68,7 @@ private[spark] class TaskSetManager(
     conf.getLong("spark.scheduler.executorTaskBlacklistTime", 0L)
 
   // Quantile of tasks at which to start speculation
-  val SPECULATION_QUANTILE = conf.getDouble("spark.speculation.quantile", 0.75)
+  val SPECULATION_QUANTILE = conf.getDouble("spark.speculation.quantile", 0.75)     //分位数
   val SPECULATION_MULTIPLIER = conf.getDouble("spark.speculation.multiplier", 1.5)
 
   // Serializer for closures and tasks.
@@ -283,6 +283,7 @@ private[spark] class TaskSetManager(
    * Return a speculative task for a given executor if any are available. The task should not have
    * an attempt running on this host, in case the host is slow. In addition, the task should meet
    * the given locality constraint.
+   * 返回一个估算的task，给一个executor来执行。这个task没有尝试在这个host上执行过，避免这个host太慢。
    */
   private def findSpeculativeTask(execId: String, host: String, locality: TaskLocality.Value)
     : Option[(Int, TaskLocality.Value)] =
@@ -718,6 +719,7 @@ private[spark] class TaskSetManager(
   /**
    * Check for tasks to be speculated and return true if there are any. This is called periodically
    * by the TaskScheduler.
+   * 检查speculated的task，通过task执行的时间和相关系数，找出运行时间比较异常的task
    *
    * TODO: To make this scale to large jobs, we need to maintain a list of running tasks, so that
    * we don't scan the whole task set. It might also help to make this sorted by launch time.
@@ -731,7 +733,7 @@ private[spark] class TaskSetManager(
     var foundTasks = false
     val minFinishedForSpeculation = (SPECULATION_QUANTILE * numTasks).floor.toInt
     logDebug("Checking for speculative tasks: minFinished = " + minFinishedForSpeculation)
-    if (tasksSuccessful >= minFinishedForSpeculation && tasksSuccessful > 0) {
+    if (tasksSuccessful >= minFinishedForSpeculation && tasksSuccessful > 0) {    //成功的task大于某个值
       val time = clock.getTime()
       val durations = taskInfos.values.filter(_.successful).map(_.duration).toArray
       Arrays.sort(durations)

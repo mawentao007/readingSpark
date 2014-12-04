@@ -155,6 +155,7 @@ private[spark] object AkkaUtils extends Logging {
   /**
    * Send a message to the given actor and get its result within a default timeout, or
    * throw a SparkException if this fails.
+   * 给一个actor发送消息，在一个超时时间内获得结果
    */
   def askWithReply[T](
       message: Any,

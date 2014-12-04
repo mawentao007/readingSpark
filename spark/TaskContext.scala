@@ -27,6 +27,7 @@ import org.apache.spark.util.TaskCompletionListener
 /**
  * :: DeveloperApi ::
  * Contextual information about a task which can be read or mutated during execution.
+ * 一个task的上下文信息，可以在执行过程中被读取或者改变
  *
  * @param stageId stage id
  * @param partitionId index of the partition
@@ -46,10 +47,10 @@ class TaskContext(
   @deprecated("use partitionId", "0.8.1")
   def splitId = partitionId
 
-  // List of callback functions to execute when the task completes.
+  // List of callback functions to execute when the task completes.task执行完成后，要被执行的回调函数列表
   @transient private val onCompleteCallbacks = new ArrayBuffer[TaskCompletionListener]
 
-  // Whether the corresponding task has been killed.
+  // Whether the corresponding task has been killed.  相应task是否被杀死
   @volatile private var interrupted: Boolean = false
 
   // Whether the task has completed.
@@ -100,7 +101,9 @@ class TaskContext(
     }
   }
 
-  /** Marks the task as completed and triggers the listeners. */
+  /** Marks the task as completed and triggers the listeners.
+    * 标记当前task为结束，触发监听
+    * */
   private[spark] def markTaskCompleted(): Unit = {
     completed = true
     // Process complete callbacks in the reverse order of registration

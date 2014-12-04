@@ -60,6 +60,7 @@ private[spark] class DiskBlockManager(shuffleBlockManager: ShuffleBlockManager, 
    * Returns the physical file segment in which the given BlockId is located. If the BlockId has
    * been mapped to a specific FileSegment by the shuffle layer, that will be returned.
    * Otherwise, we assume the Block is mapped to the whole file identified by the BlockId.
+   * 返回给定的块存放的物理文件段。如果这个块被shuffle层映射到特定的文件段，那么将被返回。否则，我们假设这个块被映射到由blockId指向的整个文件。
    */
   def getBlockLocation(blockId: BlockId): FileSegment = {
     val env = SparkEnv.get  // NOTE: can be null in unit tests

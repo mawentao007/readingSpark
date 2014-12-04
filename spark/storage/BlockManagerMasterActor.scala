@@ -36,6 +36,7 @@ import org.apache.spark.util.{ActorLogReceive, AkkaUtils, Utils}
 /**
  * BlockManagerMasterActor is an actor on the master node to track statuses of
  * all slaves' block managers.
+ * bmma是一个master上的node，跟踪所有bm的状态
  */
 private[spark]
 class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus: LiveListenerBus)
@@ -45,9 +46,11 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
   private val blockManagerInfo = new mutable.HashMap[BlockManagerId, BlockManagerInfo]
 
   // Mapping from executor ID to block manager ID.
+  // executor id 到manager id的映射
   private val blockManagerIdByExecutor = new mutable.HashMap[String, BlockManagerId]
 
   // Mapping from block id to the set of block managers that have the block.
+  //block id 到拥有这个block的bm集合的映射
   private val blockLocations = new JHashMap[BlockId, mutable.HashSet[BlockManagerId]]
 
   private val akkaTimeout = AkkaUtils.askTimeout(conf)
@@ -135,9 +138,11 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
   private def removeRdd(rddId: Int): Future[Seq[Int]] = {
     // First remove the metadata for the given RDD, and then asynchronously remove the blocks
     // from the slaves.
+    //首先移除给定RDD的元数据，然后异步从slave上移除块
 
     // Find all blocks for the given RDD, remove the block from both blockLocations and
     // the blockManagerInfo that is tracking the blocks.
+    //找到所有给定RDD的块，从blockLocations处和跟踪这个blocks的blockManagerInfo处移除
     val blocks = blockLocations.keys.flatMap(_.asRDDId).filter(_.rddId == rddId)
     blocks.foreach { blockId =>
       val bms: mutable.HashSet[BlockManagerId] = blockLocations.get(blockId)
@@ -171,6 +176,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
    * Delegate RemoveBroadcast messages to each BlockManager because the master may not notified
    * of all broadcast blocks. If removeFromDriver is false, broadcast blocks are only removed
    * from the executors, but not from the driver.
+   * 转发移除rb的消息到所有bm，因为master可能无法通知到所有broadcast块。如果rmfd是false，broadcast block只从executor移除，但是没从driver移除
    */
   private def removeBroadcast(broadcastId: Long, removeFromDriver: Boolean): Future[Seq[Int]] = {
     // TODO: Consolidate usages of <driver>
@@ -190,9 +196,11 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
     val info = blockManagerInfo(blockManagerId)
 
     // Remove the block manager from blockManagerIdByExecutor.
+    //移除相应的executor
     blockManagerIdByExecutor -= blockManagerId.executorId
 
     // Remove it from blockManagerInfo and remove all the blocks.
+    //从bmi移除，并且移除所有blocks
     blockManagerInfo.remove(blockManagerId)
     val iterator = info.blocks.keySet.iterator
     while (iterator.hasNext) {
@@ -229,6 +237,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
   /**
    * Return true if the driver knows about the given block manager. Otherwise, return false,
    * indicating that the block manager should re-register.
+   * 如果driver知道当前bm，返回true
    */
   private def heartbeatReceived(blockManagerId: BlockManagerId): Boolean = {
     if (!blockManagerInfo.contains(blockManagerId)) {
@@ -241,6 +250,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
 
   // Remove a block from the slaves that have it. This can only be used to remove
   // blocks that the master knows about.
+  //从拥有block的slaves上移除一个block。这个只能被用来移除master知道的block
   private def removeBlockFromWorkers(blockId: BlockId) {
     val locations = blockLocations.get(blockId)
     if (locations != null) {
@@ -257,6 +267,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
   }
 
   // Return a map from the block manager id to max memory and remaining memory.
+  //返回一个bm的状态
   private def memoryStatus: Map[BlockManagerId, (Long, Long)] = {
     blockManagerInfo.map { case(blockManagerId, info) =>
       (blockManagerId, (info.maxMem, info.remainingMem))
@@ -272,7 +283,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
   /**
    * Return the block's status for all block managers, if any. NOTE: This is a
    * potentially expensive operation and should only be used for testing.
-   *
+   * 返回所有bm的块的状态
    * If askSlaves is true, the master queries each block manager for the most updated block
    * statuses. This is useful when the master is not informed of the given block by all block
    * managers.
