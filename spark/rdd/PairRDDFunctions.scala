@@ -85,7 +85,7 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
         throw new SparkException("Default partitioner cannot partition array keys.")
       }
     }
-    val aggregator = new Aggregator[K, V, C](createCombiner, mergeValue, mergeCombiners)  //合并器
+    val aggregator = new Aggregator[K, V, C](createCombiner, mergeValue, mergeCombiners)  //创建Aggregator
     if (self.partitioner == Some(partitioner)) {   //分块器不变的情况
       self.mapPartitionsWithContext((context, iter) => {
         new InterruptibleIterator(context, aggregator.combineValuesByKey(iter, context))

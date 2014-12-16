@@ -32,6 +32,7 @@ import org.apache.spark.shuffle.sort.SortShuffleManager
  * locations. By default, one block is mapped to one file with a name given by its BlockId.
  * However, it is also possible to have a block map to only a segment of a file, by calling
  * mapBlockToFileSegment().
+ *创建并维护逻辑块到磁盘块的映射。默认的，一个块被映射到由它的BlockId命名的文件，也可以映射到一个文件段。
  *
  * Block files are hashed among the directories listed in spark.local.dir (or in
  * SPARK_LOCAL_DIRS, if it's set).

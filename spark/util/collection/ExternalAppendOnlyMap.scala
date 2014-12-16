@@ -37,6 +37,7 @@ import org.apache.spark.executor.ShuffleWriteMetrics
  * :: DeveloperApi ::
  * An append-only map that spills sorted content to disk when there is insufficient space for it
  * to grow.
+ * 只能追加的map，对内容排序，将超出的内容放入磁盘，当内存没有足够空间时
  *
  * This map takes two passes over the data:
  *

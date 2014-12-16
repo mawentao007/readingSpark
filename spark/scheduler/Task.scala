@@ -46,7 +46,7 @@ import org.apache.spark.util.Utils
  */
 private[spark] abstract class Task[T](val stageId: Int, var partitionId: Int) extends Serializable {
 
-  final def run(attemptId: Long): T = {
+  final def run(attemptId: Long): T = {           //attemptId就是taskId.toInt
     context = new TaskContext(stageId, partitionId, attemptId, runningLocally = false)
     context.taskMetrics.hostname = Utils.localHostName()
     taskThread = Thread.currentThread()
@@ -61,6 +61,7 @@ private[spark] abstract class Task[T](val stageId: Int, var partitionId: Int) ex
   def preferredLocations: Seq[TaskLocation] = Nil     //taskloc是个队列
 
   // Map output tracker epoch. Will be set by TaskScheduler.
+  //TaskScheduler来设置
   var epoch: Long = -1
 
   var metrics: Option[TaskMetrics] = None

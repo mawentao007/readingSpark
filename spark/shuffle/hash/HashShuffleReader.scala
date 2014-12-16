@@ -34,27 +34,29 @@ private[spark] class HashShuffleReader[K, C](
 
   private val dep = handle.dependency
 
-  /** Read the combined key-values for this reduce task */
+  /** Read the combined key-values for this reduce task
+    * 给当前的reduce任务读取combined 的kv
+    * */
   override def read(): Iterator[Product2[K, C]] = {
-    val readMetrics = context.taskMetrics.createShuffleReadMetricsForDependency()
+    val readMetrics = context.taskMetrics.createShuffleReadMetricsForDependency()  //监控当前dependency的读取过程
     val ser = Serializer.getSerializer(dep.serializer)
-    val iter = BlockStoreShuffleFetcher.fetch(handle.shuffleId, startPartition, context, ser,
+    val iter = BlockStoreShuffleFetcher.fetch(handle.shuffleId, startPartition, context, ser,   //返回一个iterator
       readMetrics)
 
-    val aggregatedIter: Iterator[Product2[K, C]] = if (dep.aggregator.isDefined) {
+    val aggregatedIter: Iterator[Product2[K, C]] = if (dep.aggregator.isDefined) {       //返回iterator
       if (dep.mapSideCombine) {
-        new InterruptibleIterator(context, dep.aggregator.get.combineCombinersByKey(iter, context))
+        new InterruptibleIterator(context, dep.aggregator.get.combineCombinersByKey(iter, context))   //map端合并Combiners
       } else {
-        new InterruptibleIterator(context, dep.aggregator.get.combineValuesByKey(iter, context))
+        new InterruptibleIterator(context, dep.aggregator.get.combineValuesByKey(iter, context))     //map端合并值
       }
     } else if (dep.aggregator.isEmpty && dep.mapSideCombine) {
       throw new IllegalStateException("Aggregator is empty for map-side combine")
     } else {
-      // Convert the Product2s to pairs since this is what downstream RDDs currently expect
+      // Convert the Product2s to pairs since this is what downstream RDDs currently expec     //t
       iter.asInstanceOf[Iterator[Product2[K, C]]].map(pair => (pair._1, pair._2))
     }
 
-    // Sort the output if there is a sort ordering defined.
+    // Sort the output if there is a sort ordering defined. 如果定义了排序方法，排序输出
     dep.keyOrdering match {
       case Some(keyOrd: Ordering[K]) =>
         // Create an ExternalSorter to sort the data. Note that if spark.shuffle.spill is disabled,

@@ -17,10 +17,9 @@
 
 package org.apache.spark.util.collection
 
-import java.util.{Arrays, Comparator}
+import java.util.Comparator
 
 import com.google.common.hash.Hashing
-
 import org.apache.spark.annotation.DeveloperApi
 
 /**
@@ -50,6 +49,7 @@ class AppendOnlyMap[K, V](initialCapacity: Int = 64)
 
   // Holds keys and values in the same array for memory locality; specifically, the order of
   // elements is key0, value0, key1, value1, key2, value2, etc.
+  //内存局部性，在同样的队列中保留kv。
   private var data = new Array[AnyRef](2 * capacity)
 
   // Treat the null key differently so we can use nulls in "data" to represent empty items.
@@ -136,7 +136,7 @@ class AppendOnlyMap[K, V](initialCapacity: Int = 64)
     while (true) {
       val curKey = data(2 * pos)
       if (k.eq(curKey) || k.equals(curKey)) {
-        val newValue = updateFunc(true, data(2 * pos + 1).asInstanceOf[V])
+        val newValue = updateFunc(true, data(2 * pos + 1).asInstanceOf[V])     //kc._1是key，2pos+1是v，oldv，oldv和kc._2进行merge
         data(2 * pos + 1) = newValue.asInstanceOf[AnyRef]
         return newValue
       } else if (curKey.eq(null)) {

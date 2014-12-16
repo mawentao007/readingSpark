@@ -24,9 +24,9 @@ import org.apache.spark.util.collection.{AppendOnlyMap, ExternalAppendOnlyMap}
  * :: DeveloperApi ::
  * A set of functions used to aggregate data.
  *
- * @param createCombiner function to create the initial value of the aggregation.
- * @param mergeValue function to merge a new value into the aggregation result.
- * @param mergeCombiners function to merge outputs from multiple mergeValue function.
+ * @param createCombiner function to create the initial value of the aggregation. 创建aggregation的初始值
+ * @param mergeValue function to merge a new value into the aggregation result.  将一个新值merge到aggregation中
+ * @param mergeCombiners function to merge outputs from multiple mergeValue function. 将多个mergeValue的输出merge
  */
 @DeveloperApi
 case class Aggregator[K, V, C] (
@@ -45,8 +45,8 @@ case class Aggregator[K, V, C] (
     if (!externalSorting) {
       val combiners = new AppendOnlyMap[K,C]               //创建map
       var kv: Product2[K, V] = null
-      val update = (hadValue: Boolean, oldValue: C) => {
-        if (hadValue) mergeValue(oldValue, kv._2) else createCombiner(kv._2)    //如果有值，根据函数来合并值，没有的话进行转化即可
+      val update = (hadValue: Boolean, oldValue: C) => {         //这是一个lambda函数
+        if (hadValue) mergeValue(oldValue, kv._2) else createCombiner(kv._2)    //如果有值，根据函数来合并值，没有的话创建一个
       }
       while (iter.hasNext) {
         kv = iter.next()
@@ -74,14 +74,15 @@ case class Aggregator[K, V, C] (
       : Iterator[(K, C)] =
   {
     if (!externalSorting) {
-      val combiners = new AppendOnlyMap[K,C]
+      val combiners = new AppendOnlyMap[K,C]     //创建一个映射表，利用这个映射表和combiner函数，根据key将iter中的元素进行合并，返回一个合并后的。
       var kc: Product2[K, C] = null
       val update = (hadValue: Boolean, oldValue: C) => {
-        if (hadValue) mergeCombiners(oldValue, kc._2) else kc._2
+        if (hadValue) mergeCombiners(oldValue, kc._2) else kc._2    //如果有combiner，合并，如果没有，还用原来的
       }
-      while (iter.hasNext) {
+      while (iter.hasNext) {       //从iter里面取出一个，根据key来合并
         kc = iter.next()
-        combiners.changeValue(kc._1, update)
+        combiners.changeValue(kc._1, update)      //这里很绕，update访问一个局部变量，但是在另一个函数中被调用，这时这个变量已经不在调用时的
+                                                //上下文，那么相关变量依旧可以访问并且被使用到？
       }
       combiners.iterator
     } else {

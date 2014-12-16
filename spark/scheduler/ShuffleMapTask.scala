@@ -65,8 +65,11 @@ private[spark] class ShuffleMapTask(
     var writer: ShuffleWriter[Any, Any] = null
     try {
       val manager = SparkEnv.get.shuffleManager
-      writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)   //map task写入
-      writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])   //写iterator
+      writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)   //handle = (shuffleId, numMaps, dependency)
+                                                                                     //partitionId就是mapid
+      writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])   //iterator就是要处理的数据，处理之后进行写
+                                                                                        //从依赖处获得相应partition（一个依赖或者多个），再写入对应的
+                                                                                 //bucket。先完成reduce，再完成map
       return writer.stop(success = true).get
     } catch {
       case e: Exception =>

@@ -17,11 +17,11 @@
 
 package org.apache.spark.shuffle
 
-import org.apache.spark.{ShuffleDependency, Aggregator, Partitioner}
-import org.apache.spark.serializer.Serializer
+import org.apache.spark.ShuffleDependency
 
 /**
  * A basic ShuffleHandle implementation that just captures registerShuffle's parameters.
+ * 只获得registerShuffle的参数
  */
 private[spark] class BaseShuffleHandle[K, V, C](
     shuffleId: Int,

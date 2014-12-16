@@ -223,7 +223,7 @@ class DAGScheduler(
    */
   private def getShuffleMapStage(shuffleDep: ShuffleDependency[_, _, _], jobId: Int): Stage = {
 //    logInfo("****************************Marvin*************************** getShuffleMapStage")
-    shuffleToMapStage.get(shuffleDep.shuffleId) match {                     //查看依赖的Id是否存在
+    shuffleToMapStage.get(shuffleDep.shuffleId) match {                     //利用shuffleid检查当前的依赖是否有对应的stage
       case Some(stage) => stage                                             //如果存在，返回相应的stage
       case None =>                                                          //不存在，找到祖先丢失的依赖，并注册祖先的依赖和当前依赖
         // We are going to register ancestor shuffle dependencies
@@ -895,7 +895,8 @@ class DAGScheduler(
       partitionsToCompute.map { id =>
 //        stage.printStageInfo()
         val locs = getPreferredLocs(stage.rdd, id)    //比较倾向的输出位置
-        val part = stage.rdd.partitions(id)          //这个partition数据已经有了，要的是计算，进行shuffle，将结果输出给下一层
+        val part = stage.rdd.partitions(id)          //取一个partition，这个partition可能是上层rdd的，是包含数据的。将
+                                                  //iterator计算完成后，再将这个partition通过partitioner分发到不同bucket
     //    stage.printStageInfo()
         new ShuffleMapTask(stage.id, taskBinary, part, locs)
       }
@@ -1045,7 +1046,7 @@ class DAGScheduler(
             }
 
           case smt: ShuffleMapTask =>
-            val status = event.result.asInstanceOf[MapStatus]
+            val status = event.result.asInstanceOf[MapStatus]         //!!!executor执行完的结果在这里被提取
             val execId = status.location.executorId
             logDebug("ShuffleMapTask finished on " + execId)
             if (failedEpoch.contains(execId) && smt.epoch <= failedEpoch(execId)) {
@@ -1361,11 +1362,12 @@ class DAGScheduler(
     //如果已经缓存了，就返回缓存地址。
     val cached = getCacheLocs(rdd)(partition)
     if (!cached.isEmpty) {
+      logInfo("###############################cached#################3")
       return cached
     }
     // If the RDD has some placement preferences (as is the case for input RDDs), get those
     //如该rdd有想要存放的地方，返回这些位置
-    val rddPrefs = rdd.preferredLocations(rdd.partitions(partition)).toList
+    val rddPrefs = rdd.preferredLocations(rdd.partitions(partition)).toList  //调用父类方法，调用者改变？
     if (!rddPrefs.isEmpty) {
  //     logInfo("*******************Marvin**********&&&&&" + rddPrefs.map(host => TaskLocation(host)))
       return rddPrefs.map(host => TaskLocation(host))   //生成TaskLocation对象
@@ -1376,8 +1378,8 @@ class DAGScheduler(
     //如果rdd有窄依赖，找到第一个partition的位置喜好，理论上讲应该依据传输数据大小。
     rdd.dependencies.foreach {
       case n: NarrowDependency[_] =>            //如果是窄依赖，则将依赖的preloc添加
-        for (inPart <- n.getParents(partition)) {
-          val locs = getPreferredLocsInternal(n.rdd, inPart, visited)
+        for (inPart <- n.getParents(partition)) {      //找到父rdd的相应的partition
+          val locs = getPreferredLocsInternal(n.rdd, inPart, visited)   //递归调用
           if (locs != Nil) {
             return locs                    //返回第一个dep的地址
           }

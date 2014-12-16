@@ -19,6 +19,7 @@ package org.apache.spark.shuffle
 
 /**
  * An opaque handle to a shuffle, used by a ShuffleManager to pass information about it to tasks.
+ * shufflemanage用来给task传递消息
  *
  * @param shuffleId ID of the shuffle
  */

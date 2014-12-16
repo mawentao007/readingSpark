@@ -17,8 +17,6 @@
 
 package org.apache.spark.rdd
 
-import scala.reflect.ClassTag
-
 import org.apache.spark._
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.serializer.Serializer
@@ -77,7 +75,7 @@ class ShuffledRDD[K, V, C](
     this
   }
 
-  override def getDependencies: Seq[Dependency[_]] = {            //根据父rdd的分块器来创建shuffle依赖
+  override def getDependencies: Seq[Dependency[_]] = {            //根据父rdd的分块器来创建shuffle依赖，只有一个shuffleDependencies
     List(new ShuffleDependency(prev, part, serializer, keyOrdering, aggregator, mapSideCombine))
   }
 
@@ -87,8 +85,8 @@ class ShuffledRDD[K, V, C](
     Array.tabulate[Partition](part.numPartitions)(i => new ShuffledRDDPartition(i))  //tabulate，生成array
   }
 
-  override def compute(split: Partition, context: TaskContext): Iterator[(K, C)] = {
-    val dep = dependencies.head.asInstanceOf[ShuffleDependency[K, V, C]]
+  override def compute(split: Partition, context: TaskContext): Iterator[(K, C)] = {       //只负责获取数据？
+    val dep = dependencies.head.asInstanceOf[ShuffleDependency[K, V, C]]        //为什么只有一个head，这个rdd的依赖只有一个rdd，是的！
     SparkEnv.get.shuffleManager.getReader(dep.shuffleHandle, split.index, split.index + 1, context)
       .read()
       .asInstanceOf[Iterator[(K, C)]]

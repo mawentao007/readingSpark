@@ -32,7 +32,9 @@ import org.apache.spark.util.collection.{PrimitiveKeyOpenHashMap, PrimitiveVecto
 import org.apache.spark.shuffle.sort.SortShuffleManager
 import org.apache.spark.executor.ShuffleWriteMetrics
 
-/** A group of writers for a ShuffleMapTask, one writer per reducer. */
+/** A group of writers for a ShuffleMapTask, one writer per reducer.
+  * 代表一个ShuffleMapTask的一组接口，每个reducer一个writer。
+  * */
 private[spark] trait ShuffleWriterGroup {
   val writers: Array[BlockObjectWriter]
 
@@ -74,6 +76,7 @@ class ShuffleBlockManager(blockManager: BlockManager,
   def conf = blockManager.conf
 
   // Turning off shuffle file consolidation causes all shuffle Blocks to get their own file.
+  //关闭这个特性可以是每个shuffle Block是有自己的文件
   // TODO: Remove this once the shuffle file consolidation feature is stable.
   val consolidateShuffleFiles =
     conf.getBoolean("spark.shuffle.consolidateFiles", false)
@@ -103,15 +106,16 @@ class ShuffleBlockManager(blockManager: BlockManager,
   }
 
   type ShuffleId = Int
-  private val shuffleStates = new TimeStampedHashMap[ShuffleId, ShuffleState]
+  private val shuffleStates = new TimeStampedHashMap[ShuffleId, ShuffleState]     //shuffleId到shuffleState的映射
 
   private val metadataCleaner =
-    new MetadataCleaner(MetadataCleanerType.SHUFFLE_BLOCK_MANAGER, this.cleanup, conf)
+    new MetadataCleaner(MetadataCleanerType.SHUFFLE_BLOCK_MANAGER, this.cleanup, conf)     //清理元数据
 
   /**
    * Register a completed map without getting a ShuffleWriterGroup. Used by sort-based shuffle
    * because it just writes a single file by itself.
-   * 注册一个完全的map不用获得wg，被sort-based shuffle 利用，因为他只写一个文件
+   * 注册一个完成的map，不用获得ShuffleWriterGroup。sort-basedshuffle来使用，因为它的每个map都要写一个独立的文件
+   *
    */
   def addCompletedMap(shuffleId: Int, mapId: Int, numBuckets: Int): Unit = {
     shuffleStates.putIfAbsent(shuffleId, new ShuffleState(numBuckets))   //一个shuffleId，对应一组sst
@@ -122,24 +126,25 @@ class ShuffleBlockManager(blockManager: BlockManager,
   /**
    * Get a ShuffleWriterGroup for the given map task, which will register it as complete
    * when the writers are closed successfully
+   * 给一个map任务获取一个ShuffleWriterGroup，当writers完成的时候会被注册为成功。
    */
   def forMapTask(shuffleId: Int, mapId: Int, numBuckets: Int, serializer: Serializer,   //partition个数就是numBuckets
       writeMetrics: ShuffleWriteMetrics) = {
     new ShuffleWriterGroup {                                  //创建了一个ShuffleWriterGroup，返回值就是这个group
-      shuffleStates.putIfAbsent(shuffleId, new ShuffleState(numBuckets))
+      shuffleStates.putIfAbsent(shuffleId, new ShuffleState(numBuckets))        //创建当前shuffleId的shuffleState并放入
       private val shuffleState = shuffleStates(shuffleId)
       private var fileGroup: ShuffleFileGroup = null
 
       val writers: Array[BlockObjectWriter] = if (consolidateShuffleFiles) {  //返回BlockObjectWriter队列
         fileGroup = getUnusedFileGroup()
         Array.tabulate[BlockObjectWriter](numBuckets) { bucketId =>              //tabulate，返回一个数组，numBuckets个，值是后面函数计算的
-          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)                //bucketId就是partitionId，给一个整数，算出相应数据
+          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)  //bucketId就是partitionId；block是根据参数简单合并生成
           blockManager.getDiskWriter(blockId, fileGroup(bucketId), serializer, bufferSize,
             writeMetrics)                    //对于每个bucket，都有一个writer，负责往里面写数据，还能计算出大小，就是mapstatus中的size之一
         }
-      } else {
+      } else {                  //对于不能合并文件的情况，给每个block一个文件
         Array.tabulate[BlockObjectWriter](numBuckets) { bucketId =>
-          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)
+          val blockId = ShuffleBlockId(shuffleId, mapId, bucketId)    //生成shuffleBlockId，很简单，利用参数连接即可
           val blockFile = blockManager.diskBlockManager.getFile(blockId)
           // Because of previous failures, the shuffle file may already exist on this machine.
           // If so, remove it.
@@ -168,7 +173,7 @@ class ShuffleBlockManager(blockManager: BlockManager,
       }
 
       private def getUnusedFileGroup(): ShuffleFileGroup = {
-        val fileGroup = shuffleState.unusedFileGroups.poll()
+        val fileGroup = shuffleState.unusedFileGroups.poll()          //从shuffleState中去除一个没用过的fileGroups，如果没有空的，则创建一个。
         if (fileGroup != null) fileGroup else newFileGroup()
       }
 
@@ -193,6 +198,7 @@ class ShuffleBlockManager(blockManager: BlockManager,
    * Returns the physical file segment in which the given BlockId is located.
    * This function should only be called if shuffle file consolidation is enabled, as it is
    * an error condition if we don't find the expected block.
+   * 返回BlockId所在的物理文件段，必须在支持文件consolidation的条件下才有用
    */
   def getBlockLocation(id: ShuffleBlockId): FileSegment = {
     // Search all file groups associated with this shuffle.
@@ -204,7 +210,8 @@ class ShuffleBlockManager(blockManager: BlockManager,
     throw new IllegalStateException("Failed to find shuffle block: " + id)
   }
 
-  /** Remove all the blocks / files and metadata related to a particular shuffle. */
+  /** Remove all the blocks / files and metadata related to a particular shuffle.
+    * 移除所有的和某个shuffle相关的blocks/files和元数据*/
   def removeShuffle(shuffleId: ShuffleId): Boolean = {
     // Do not change the ordering of this, if shuffleStates should be removed only
     // after the corresponding shuffle blocks have been removed
@@ -213,18 +220,19 @@ class ShuffleBlockManager(blockManager: BlockManager,
     cleaned
   }
 
-  /** Remove all the blocks / files related to a particular shuffle. */
+  /** Remove all the blocks / files related to a particular shuffle.
+    * 移除所有blocks /files 和一个特定shuffle相关的，由removeShuffle来调用 */
   private def removeShuffleBlocks(shuffleId: ShuffleId): Boolean = {
     shuffleStates.get(shuffleId) match {
       case Some(state) =>
-        if (sortBasedShuffle) {
+        if (sortBasedShuffle) {     //如果是sortBased的Shuffle，那么每个map有一个唯一的blockId，和一个索引文件
           // There's a single block ID for each map, plus an index file for it
-          for (mapId <- state.completedMapTasks) {
+          for (mapId <- state.completedMapTasks) {           //已经完成的map，会产生相应的输出，要将他们获取并删除
             val blockId = new ShuffleBlockId(shuffleId, mapId, 0)
             blockManager.diskBlockManager.getFile(blockId).delete()
             blockManager.diskBlockManager.getFile(blockId.name + ".index").delete()
           }
-        } else if (consolidateShuffleFiles) {
+        } else if (consolidateShuffleFiles) {            //一个shuffleState对应一个shuffle，删除其中的所有文件组中的文件
           for (fileGroup <- state.allFileGroups; file <- fileGroup.files) {
             file.delete()
           }
@@ -262,7 +270,7 @@ object ShuffleBlockManager {
    * A particular mapper will be assigned a single ShuffleFileGroup to write its output to.
    * 一组shuffle 文件，每个reducer一个
    */
-  private class ShuffleFileGroup(val shuffleId: Int, val fileId: Int, val files: Array[File]) {
+  private class ShuffleFileGroup(val shuffleId: Int, val fileId: Int, val files: Array[File]) { //放在伙伴对象中可以被其它文件访问
     private var numBlocks: Int = 0
 
     /**

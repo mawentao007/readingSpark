@@ -43,7 +43,7 @@ private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster
 
   override def receiveWithLogging = {
     case GetMapOutputStatuses(shuffleId: Int) =>
-      val hostPort = sender.path.address.hostPort
+      val hostPort = sender.path.address.hostPort        //发送者的port
       logInfo("Asked to send map output locations for shuffle " + shuffleId + " to " + hostPort)
       val mapOutputStatuses = tracker.getSerializedMapOutputStatuses(shuffleId)
       val serializedSize = mapOutputStatuses.size
@@ -71,39 +71,43 @@ private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster
  * Class that keeps track of the location of the map output of
  * a stage. This is abstract because different versions of MapOutputTracker
  * (driver and worker) use different HashMap to store its metadata.
+ * 跟踪一个stage的输出。
  */
 private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging {
   private val timeout = AkkaUtils.askTimeout(conf)
 
   /** Set to the MapOutputTrackerActor living on the driver. */
+  //这个driver上面活跃的MapOutputTrackerActor
   var trackerActor: ActorRef = _
 
   /**
    * This HashMap has different behavior for the master and the workers.
    *
    * On the master, it serves as the source of map outputs recorded from ShuffleMapTasks.
-   * 在master端，作为从ShuffleMapTask是来的map outputs记录的数据源
+   * 在master端，记录shuffleMapTasks的输出结果，作为map outputs记录的数据源
    * On the workers, it simply serves as a cache, in which a miss triggers a fetch from the
    * master's corresponding HashMap.
    * 在worker端作为缓存
    */
-  protected val mapStatuses: Map[Int, Array[MapStatus]]
+  protected val mapStatuses: Map[Int, Array[MapStatus]]      //shuffleid到MapStatus的映射
 
   /**
    * Incremented every time a fetch fails so that client nodes know to clear
    * their cache of map output locations if this happens.
-   * 每次fetch失败的时候增加一个，客户端节点可以清除map output位置缓存。
+   * 每次fetch失败的时候都会改变，客户端节点就知道自己缓存的map output locations已经失效
    */
   protected var epoch: Long = 0
   protected val epochLock = new AnyRef
 
-  /** Remembers which map output locations are currently being fetched on a worker. */
-  private val fetching = new HashSet[Int]
+  /** Remembers which map output locations are currently being fetched on a worker.
+    * 在一个worker上，记录是哪一个输出位置正在被获取
+    * */
+  private val fetching = new HashSet[Int]     //内容是shuffleId
 
   /**
    * Send a message to the trackerActor and get its result within a default timeout, or
    * throw a SparkException if this fails.
-   * 发送消息给trackerActor，获取它的结果
+   * 发送消息给trackerActor，在超时时间内获取它的结果
    */
   protected def askTracker(message: Any): Any = {
     try {
@@ -133,14 +137,15 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
    * executors调用，获得server 资源地址，一个给定shuffle的map输出的大小
    */
   def getServerStatuses(shuffleId: Int, reduceId: Int): Array[(BlockManagerId, Long)] = {
-    val statuses = mapStatuses.get(shuffleId).orNull
+    val statuses = mapStatuses.get(shuffleId).orNull     //查看shuffleId相应的mapStatus是否存在
     if (statuses == null) {
       logInfo("Don't have map outputs for shuffle " + shuffleId + ", fetching them")
       var fetchedStatuses: Array[MapStatus] = null
-      fetching.synchronized {
+      fetching.synchronized {             //fetching包含正在fetching的shuffleId
         if (fetching.contains(shuffleId)) {
           // Someone else is fetching it; wait for them to be done
-          while (fetching.contains(shuffleId)) {
+          while (fetching.contains(shuffleId)) {  //fetching包含其它的shuffleid，说明正在进行fetching，我们不能进入，只能等待
+
             try {
               fetching.wait()
             } catch {
@@ -151,26 +156,27 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
 
         // Either while we waited the fetch happened successfully, or
         // someone fetched it in between the get and the fetching.synchronized.
+        //或者在等待的时候fetch成功，或者有人已经fetch到了
         fetchedStatuses = mapStatuses.get(shuffleId).orNull
         if (fetchedStatuses == null) {
-          // We have to do the fetch, get others to wait for us.
+          // We have to do the fetch, get others to wait for us.我们必须进行fetch，让其他人等
           fetching += shuffleId
         }
       }
 
       if (fetchedStatuses == null) {
-        // We won the race to fetch the output locs; do so
+        // We won the race to fetch the output locs; do so 成功的进行fetch
         logInfo("Doing the fetch; tracker actor = " + trackerActor)
         // This try-finally prevents hangs due to timeouts:
         try {
-          val fetchedBytes =
+          val fetchedBytes =                 //fetch的实际的过程，获得字节队列
             askTracker(GetMapOutputStatuses(shuffleId)).asInstanceOf[Array[Byte]]
           fetchedStatuses = MapOutputTracker.deserializeMapStatuses(fetchedBytes)
           logInfo("Got the output locations")
           mapStatuses.put(shuffleId, fetchedStatuses)
         } finally {
           fetching.synchronized {
-            fetching -= shuffleId
+            fetching -= shuffleId  //释放掉fetching权限
             fetching.notifyAll()
           }
         }
@@ -184,7 +190,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
           shuffleId, reduceId, "Missing all output locations for shuffle " + shuffleId)
       }
     } else {
-      statuses.synchronized {
+      statuses.synchronized {                                     //将mapStatus转换为[(BlockManagerId, Long)]
         return MapOutputTracker.convertMapStatuses(shuffleId, reduceId, statuses)
       }
     }
@@ -201,7 +207,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
    * Called from executors to update the epoch number, potentially clearing old outputs
    * because of a fetch failure. Each worker task calls this with the latest epoch
    * number on the master at the time it was created.
-   * 更新epoch号，每个task在创建的时候调用这个方法并传递一个master上最新的epoch号。
+   * 更新epoch号，清除因为fetch失败而产生的旧的输出。每个worker task更新的时候都是用被创建时master端最新的数据
    */
   def updateEpoch(newEpoch: Long) {
     epochLock.synchronized {
@@ -225,7 +231,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
 /**
  * MapOutputTracker for the driver. This uses TimeStampedHashMap to keep track of map
  * output information, which allows old output information based on a TTL.
- * 时间戳哈希，记录map output信息
+ * driver端的MapOutputTracker 时间戳哈希，记录map output信息
  */
 private[spark] class MapOutputTrackerMaster(conf: SparkConf)
   extends MapOutputTracker(conf) {
@@ -239,12 +245,12 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
    * Other than these two scenarios, nothing should be dropped from this HashMap.
    * 时间戳哈系映射，用来存储map状态，缓存序列化状态
    */
-  protected val mapStatuses = new TimeStampedHashMap[Int, Array[MapStatus]]()
-  private val cachedSerializedStatuses = new TimeStampedHashMap[Int, Array[Byte]]()
+  protected val mapStatuses = new TimeStampedHashMap[Int, Array[MapStatus]]()   //序列化的mapstatus信息
+  private val cachedSerializedStatuses = new TimeStampedHashMap[Int, Array[Byte]]()   //时间戳映射，保存序列化的mapstatus信息
 
   // For cleaning up TimeStampedHashMaps
   private val metadataCleaner =
-    new MetadataCleaner(MetadataCleanerType.MAP_OUTPUT_TRACKER, this.cleanup, conf)
+    new MetadataCleaner(MetadataCleanerType.MAP_OUTPUT_TRACKER, this.cleanup, conf)   //清除TimeStampedHashMaps
 
   def registerShuffle(shuffleId: Int, numMaps: Int) {               //将相应的shuffle放入时间戳映射表
     if (mapStatuses.put(shuffleId, new Array[MapStatus](numMaps)).isDefined) {
@@ -317,7 +323,7 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
         cachedSerializedStatuses.clear()
         cacheEpoch = epoch
       }
-      cachedSerializedStatuses.get(shuffleId) match {
+      cachedSerializedStatuses.get(shuffleId) match {    //从时间戳哈希表中获得相应的shuffle
         case Some(bytes) =>
           return bytes
         case None =>
@@ -388,6 +394,7 @@ private[spark] object MapOutputTracker {
   // Convert an array of MapStatuses to locations and sizes for a given reduce ID. If
   // any of the statuses is null (indicating a missing location due to a failed mapper),
   // throw a FetchFailedException.
+  //转换一组mapstatuses为位置信息，给特定的reduceid。如果任何statuses是空，说明这个mapper失败了
   private def convertMapStatuses(
       shuffleId: Int,
       reduceId: Int,

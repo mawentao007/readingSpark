@@ -73,12 +73,15 @@ class ShuffleDependency[K, V, C](
     val mapSideCombine: Boolean = false)
   extends Dependency[Product2[K, V]] {
 
+  //println("!!!!!!!!!!!!!!ShuffleDependency!!!!!!!!!!!!!!!")
+
   override def rdd = _rdd.asInstanceOf[RDD[Product2[K, V]]]
 
-  val shuffleId: Int = _rdd.context.newShuffleId()
+  val shuffleId: Int = _rdd.context.newShuffleId()    //一个rdd对应一个stage，一个shuffledependency对应一个rdd，所以要一个shuffleid
 
   val shuffleHandle: ShuffleHandle = _rdd.context.env.shuffleManager.registerShuffle(
-    shuffleId, _rdd.partitions.size, this)
+    shuffleId, _rdd.partitions.size, this)                                          //partition的个数就是map次数，注册shuffle时候是用shuffleId
+                                                                                  //注册的
 
   _rdd.sparkContext.cleaner.foreach(_.registerShuffleForCleanup(this))    //父rdd的每个部分
 }

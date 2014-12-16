@@ -30,28 +30,28 @@ import org.apache.spark.util.CompletionIterator
 private[hash] object BlockStoreShuffleFetcher extends Logging {
   def fetch[T](
       shuffleId: Int,
-      reduceId: Int,
+      reduceId: Int,                     //partition的编号
       context: TaskContext,
       serializer: Serializer,
       shuffleMetrics: ShuffleReadMetrics)
     : Iterator[T] =
   {
     logDebug("Fetching outputs for shuffle %d, reduce %d".format(shuffleId, reduceId))
-    val blockManager = SparkEnv.get.blockManager
+    val blockManager = SparkEnv.get.blockManager              //获得块管理器
 
     val startTime = System.currentTimeMillis
-    val statuses = SparkEnv.get.mapOutputTracker.getServerStatuses(shuffleId, reduceId)
+    val statuses = SparkEnv.get.mapOutputTracker.getServerStatuses(shuffleId, reduceId)      //从mapOutputTracker获得status
     logDebug("Fetching map output location for shuffle %d, reduce %d took %d ms".format(
       shuffleId, reduceId, System.currentTimeMillis - startTime))
 
     val splitsByAddress = new HashMap[BlockManagerId, ArrayBuffer[(Int, Long)]]
     for (((address, size), index) <- statuses.zipWithIndex) {
-      splitsByAddress.getOrElseUpdate(address, ArrayBuffer()) += ((index, size))
+      splitsByAddress.getOrElseUpdate(address, ArrayBuffer()) += ((index, size))   //将mapstatus放入splitByAddress
     }
 
     val blocksByAddress: Seq[(BlockManagerId, Seq[(BlockId, Long)])] = splitsByAddress.toSeq.map {
       case (address, splits) =>
-        (address, splits.map(s => (ShuffleBlockId(shuffleId, s._1, reduceId), s._2)))
+        (address, splits.map(s => (ShuffleBlockId(shuffleId, s._1, reduceId), s._2)))        //获得block的位置和对应的数据大小
     }
 
     def unpackBlock(blockPair: (BlockId, Option[Iterator[Any]])) : Iterator[T] = {
@@ -59,7 +59,7 @@ private[hash] object BlockStoreShuffleFetcher extends Logging {
       val blockOption = blockPair._2
       blockOption match {
         case Some(block) => {
-          block.asInstanceOf[Iterator[T]]
+          block.asInstanceOf[Iterator[T]]          //作为iterator返回
         }
         case None => {
           blockId match {

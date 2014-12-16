@@ -154,13 +154,14 @@ private[spark] class Executor(
 
       try {
         SparkEnv.set(env)
-        Accumulators.clear()      //计数器清零
+        Accumulators.clear()      //累加器清零
         val (taskFiles, taskJars, taskBytes) = Task.deserializeWithDependencies(serializedTask)  //反序列化
         updateDependencies(taskFiles, taskJars)           //更新依赖，文件依赖和jar依赖 ，更新executor类实例的一个全局映射表
         task = ser.deserialize[Task[Any]](taskBytes, Thread.currentThread.getContextClassLoader)  //反序列化得到task
 
         // If this task has been killed before we deserialized it, let's quit now. Otherwise,
         // continue executing the task.
+        //如果task在反序列化之前被杀死，那么就退出。否则继续执行。
         if (killed) {
           // Throw an exception rather than returning, because returning within a try{} block
           // causes a NonLocalReturnControl exception to be thrown. The NonLocalReturnControl
@@ -171,7 +172,7 @@ private[spark] class Executor(
 
         attemptedTask = Some(task)
         logDebug("Task " + taskId + "'s epoch is " + task.epoch)
-        env.mapOutputTracker.updateEpoch(task.epoch)    //更新epoch号，用来标志最新的task？
+        env.mapOutputTracker.updateEpoch(task.epoch)    //用当前task的epoch更新？？？？？？？？？？？？？？？
 
         // Run the actual task and measure its runtime.
         taskStart = System.currentTimeMillis()          //开始时间
@@ -195,7 +196,7 @@ private[spark] class Executor(
           m.resultSerializationTime = afterSerialization - beforeSerialization
         }
 
-        val accumUpdates = Accumulators.values
+        val accumUpdates = Accumulators.values        //一个executor有多个线程，累加这些结果
 
         val directResult = new DirectTaskResult(valueBytes, accumUpdates, task.metrics.orNull)
         val serializedDirectResult = ser.serialize(directResult)          //序列化结果
@@ -213,7 +214,7 @@ private[spark] class Executor(
           }
         }
 
-        execBackend.statusUpdate(taskId, TaskState.FINISHED, serializedResult)
+        execBackend.statusUpdate(taskId, TaskState.FINISHED, serializedResult)       //!!!!!!!!!!!!!!!!!!!!!!
 
         if (directSend) {
           logInfo(s"Finished $taskName (TID $taskId). $resultSize bytes result sent to driver")

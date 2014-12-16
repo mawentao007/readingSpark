@@ -207,13 +207,14 @@ private[spark] class DiskBlockObjectWriter(
     }
   }
 
-  override def fileSegment(): FileSegment = {
+  override def fileSegment(): FileSegment = {     //文件段长
     new FileSegment(file, initialPosition, finalPosition - initialPosition)
   }
 
   /**
    * Report the number of bytes written in this writer's shuffle write metrics.
    * Note that this is only valid before the underlying streams are closed.
+   * 汇报这个writer写的字节长度，只有在流未关闭的时候有效
    */
   private def updateBytesWritten() {
     val pos = channel.position()

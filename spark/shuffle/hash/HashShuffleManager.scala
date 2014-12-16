@@ -37,6 +37,7 @@ private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager 
   /**
    * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
    * Called on executors by reduce tasks.
+   * 给一个范围的reduce partition获得一个reader，reduce任务在executors上调用
    */
   override def getReader[K, C](
       handle: ShuffleHandle,

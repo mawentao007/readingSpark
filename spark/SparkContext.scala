@@ -70,6 +70,7 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
    * Create a SparkContext that loads settings from system properties (for instance, when
    * launching with ./bin/spark-submit).
+   * 载入系统设置来创建spark上下文，例如使用spark-submit
    */
   def this() = this(new SparkConf())
 
@@ -160,6 +161,7 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
    * Return a copy of this SparkContext's configuration. The configuration ''cannot'' be
    * changed at runtime.
+   * 返回上下文配置的副本，在执行期间不能被改变
    */
   def getConf: SparkConf = conf.clone()
 

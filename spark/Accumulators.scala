@@ -26,6 +26,7 @@ import scala.reflect.ClassTag
 import org.apache.spark.serializer.JavaSerializer
 
 /**
+ * 一个可以被累加的数据类型，连续的相关的加操作
  * A data type that can be accumulated, ie has an commutative and associative "add" operation,
  * but where the result type, `R`, may be different from the element type being added, `T`.
  *
@@ -248,7 +249,7 @@ trait AccumulatorParam[T] extends AccumulableParam[T, T] {
 private object Accumulators {
   // TODO: Use soft references? => need to make readObject work properly then
   val originals = Map[Long, Accumulable[_, _]]()
-  val localAccums = Map[Thread, Map[Long, Accumulable[_, _]]]()
+  val localAccums = Map[Thread, Map[Long, Accumulable[_, _]]]()      //线程
   var lastId: Long = 0
 
   def newId: Long = synchronized {
@@ -273,6 +274,7 @@ private object Accumulators {
   }
 
   // Get the values of the local accumulators for the current thread (by ID)
+  //给当前thread获得本地accumulator结果
   def values: Map[Long, Any] = synchronized {
     val ret = Map[Long, Any]()
     for ((id, accum) <- localAccums.getOrElse(Thread.currentThread, Map())) {

@@ -581,11 +581,11 @@ private[spark] class BlockManager(
    * 利用BlockManagerIds从本地和远端bm获取多个块，返回（block Id，value）对的迭代器。
    */
   def getMultiple(
-      blocksByAddress: Seq[(BlockManagerId, Seq[(BlockId, Long)])],
+      blocksByAddress: Seq[(BlockManagerId, Seq[(BlockId, Long)])],      //块地址，块号，大小都有了
       serializer: Serializer,
       readMetrics: ShuffleReadMetrics): BlockFetcherIterator = {
     val iter =
-      if (conf.getBoolean("spark.shuffle.use.netty", false)) {
+      if (conf.getBoolean("spark.shuffle.use.netty", false)) {      //如果使用netty
         new BlockFetcherIterator.NettyBlockFetcherIterator(this, blocksByAddress, serializer,
           readMetrics)
       } else {

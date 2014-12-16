@@ -125,7 +125,7 @@ class TaskMetrics extends Serializable {
    * issues from readers in different threads, in-progress tasks use a ShuffleReadMetrics for each
    * dependency, and merge these metrics before reporting them to the driver. This method returns
    * a ShuffleReadMetrics for a dependency and registers it for merging later.
-   *一个task可能有多个shuffle readers，对于多个依赖。为了避免不同线程之间同步问题，正在执行的task用一个ShuffleReaderMetrics来监控
+   *一个task可能有多个shuffle readers，因为可能存在多个依赖。为了避免不同线程之间同步问题，正在执行的task用一个ShuffleReaderMetrics来监控
    * 每个dependency并且在报告到driver之前合并这些metrics
    */
   private [spark] def createShuffleReadMetricsForDependency(): ShuffleReadMetrics = synchronized {
